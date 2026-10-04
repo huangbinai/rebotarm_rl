@@ -9,12 +9,23 @@ description = "reBotArm mjlab tasks, training configuration and policy evaluatio
 requires-python = ">=3.12"
 dependencies = ["mjlab==1.6.0", "numpy>=1.26", "torch>=2.7", "tensordict"]
 
+[project.urls]
+Repository = "https://github.com/huangbinai/rebotarm_rl"
+Issues = "https://github.com/huangbinai/rebotarm_rl/issues"
+
 [project.entry-points."mjlab.tasks"]
 rebotarm_reach = "rebotarm_rl.tasks.reach"
 
 [project.scripts]
+rebotarm-rl-fetch-model = "rebotarm_rl.resources:main"
 rebotarm-rl-paired-eval = "rebotarm_rl.evaluation.paired_eval:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["rebotarm_rl*"]
+
+[tool.setuptools.package-data]
+rebotarm_rl = ["model_manifest.json"]
+
+[project.optional-dependencies]
+test = ["pytest>=8"]

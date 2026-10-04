@@ -1,0 +1,21 @@
+{
+  "repository": "https://github.com/huangbinai/robotarm_ros2",
+  "commit": "00065fb9e47730a6905af5d6268082f8c6d02db2",
+  "root": "src/rebotarm_simulation/models/rebotarm",
+  "files": {
+    "assets/base_link.STL": "14d98e291f5eb20ce50886fcbc99427606a46ea5cc60fe3e89326e7c45b3d73f",
+    "assets/gemini2/camera.STL": "574379850b84e67e7e2b5def236e35270e4f5d3f1bcf029589969fd9ba468fdd",
+    "assets/gemini2/mount_part0.stl": "d5c645a166b36c38b4bee7485b51b9ccb706b740c807bfc09a22387fd9669108",
+    "assets/gripper_base.stl": "5e7b0473acaf31fc5c511a3591311e6561ad6066af8e135e21e18c096e1e7da5",
+    "assets/left_finger.stl": "cf8a3acbbfbcaf15e3de0663e80956a1601d3595ea451107174620e8bfcbeb5c",
+    "assets/link1.STL": "33fc9ebe2654cc27d47edd97fb90b13d2611ed2eba734332b9110d93c24cc25d",
+    "assets/link2.STL": "3dc33c484f02966f43c37b38d848669d31018140a56e3ac5c9366add36cc3fa0",
+    "assets/link3.STL": "783383016dbe0a258bd94e7fffb66c7056c9aa9dd42b61e5abb24cb228a99035",
+    "assets/link4.STL": "95364d6a7008b62fe173f447219c2ce2cd2e6f0882997374cb1d8f60652c5848",
+    "assets/link5.STL": "19ea62cabf41394d4de0ce4437298484227f37fe5e0f99c20cea2d260ede45e8",
+    "assets/link6.STL": "6315a8ae1c03a2806f9e3ade2ca7e8740f34dfe05898fc02b620b0a2e459546a",
+    "assets/right_finger.stl": "e4b5ebef66e0b2b3e5d6e0ab59342716cca585db94c5bd4fc95b79f21c6657ef",
+    "reach_scene.xml": "897fb67fb86cce6137790691cbe947fecf9b1625442d99c805921935c51e4df3",
+    "robot.xml": "7358dd2f89f4c9fbadf47878161f0894d1d77b7348024e7a89c61afd7fe60a6a"
+  }
+}
