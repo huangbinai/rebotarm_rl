@@ -1,3 +1,4 @@
+"""复用命令指标判断成功，避免奖励与终止分别维护阈值。"""
 from __future__ import annotations
 import torch
 from mjlab.envs import ManagerBasedRlEnv

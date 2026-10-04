@@ -8,7 +8,7 @@ from mjlab.managers.command_manager import CommandTerm, CommandTermCfg
 from mjlab.utils.lab_api.math import quat_error_magnitude
 @dataclass(kw_only=True)
 class ReachCommandCfg(CommandTermCfg):
-    """Fixed or locally randomized TCP target around the home pose."""
+    """在初始TCP位姿附近生成固定或随机位置目标，姿态保持初始值。"""
 
     position_radius: float = 0.06
     orientation_radius: float = 0.0

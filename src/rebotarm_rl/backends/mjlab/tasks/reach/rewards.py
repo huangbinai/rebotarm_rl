@@ -1,3 +1,4 @@
+"""距离单位为m、角度为rad；奖励鼓励接近目标并惩罚过大力矩。"""
 from __future__ import annotations
 import torch
 from mjlab.envs import ManagerBasedRlEnv

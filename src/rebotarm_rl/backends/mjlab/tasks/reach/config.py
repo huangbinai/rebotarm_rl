@@ -1,3 +1,4 @@
+"""Reach环境配置；V1/V2仅切换姿态观测，动力学和奖励保持一致。"""
 from rebotarm_rl.contracts.policy import REACH_V1
 from mjlab.envs import ManagerBasedRlEnvCfg
 from mjlab.envs.mdp import joint_pos_rel, joint_vel_rel, time_out
@@ -10,18 +11,21 @@ from mjlab.scene import SceneCfg
 from mjlab.sim import MujocoCfg, SimulationCfg
 from rebotarm_rl.backends.mjlab.robots.rebotarm import ROBOT_CFG, ROBOT
 from .commands import ReachCommandCfg
-from .observations import position_error, orientation_error
+from .observations import position_error, orientation_error, orientation_error_v2
 from .rewards import reach_reward
 from .terminations import success
 
-def make_env_cfg(*, play: bool = False, num_envs: int = 256) -> ManagerBasedRlEnvCfg:
+def make_env_cfg(*, play: bool = False, num_envs: int = 256, version: int = 1) -> ManagerBasedRlEnvCfg:
+    if version not in (1, 2):
+        raise ValueError("Reach版本必须为1或2")
+    orientation_fn = orientation_error if version == 1 else orientation_error_v2
     observations = {
         "actor": ObservationGroupCfg(
             terms={
                 "joint_pos": ObservationTermCfg(func=joint_pos_rel, params={"asset_cfg": ROBOT}),
                 "joint_vel": ObservationTermCfg(func=joint_vel_rel, params={"asset_cfg": ROBOT}),
                 "position_error": ObservationTermCfg(func=position_error),
-                "orientation_error": ObservationTermCfg(func=orientation_error),
+                "orientation_error": ObservationTermCfg(func=orientation_fn),
             },
             enable_corruption=False,
         ),

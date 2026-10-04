@@ -1,3 +1,4 @@
+"""检查生效环境配置与公开契约一致，禁止时序静默漂移。"""
 import pytest
 
 def test_task_contract_matches_effective_config():

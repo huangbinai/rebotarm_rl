@@ -18,7 +18,7 @@ wheel必须包含assets/model_manifest.json；在仓库之外验证入口。
 不按行数拆分；不建立万能utils，不捕获所有异常后继续训练。
 配置归后端原生配置系统；命名实验记录覆盖，不复制任务实现。
 位置误差方向是current-target，不得仅按字段名字推断。
-保持历史姿态编码直到单独任务变更，详见policy_contract.md。
+V1保留历史姿态编码；V2采用标准相对旋转向量，详见policy_contract.md。
 
 ## 实验记录
 RecordedRunner在训练前写入run_manifest.json、model_manifest.json、
@@ -26,7 +26,7 @@ dependencies.txt和compiled_model.mjb。
 原生params/env.yaml、params/agent.yaml保留最终任务与PPO配置，避免另造序列化器。
 记录Git提交、dirty状态、seed、设备、参数、模型及编译模型哈希。
 恢复checkpoint记录来源及哈希；有契约时拒绝不兼容版本，
-历史checkpoint缺少契约时明确警告，不能宣称兼容已被证明。
+V1历史checkpoint缺少契约时明确警告，不能宣称兼容已被证明；V2必须有内嵌契约。
 产物保留mjlab原生布局，避免破坏恢复与play入口。
 
 本地可使用dirty工作区；正式比较和发布使用干净固定提交。

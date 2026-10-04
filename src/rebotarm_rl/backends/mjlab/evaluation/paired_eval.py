@@ -1,8 +1,7 @@
-"""Offline CPU MuJoCo / mjlab Warp evaluation of the same Reach checkpoint.
+"""对同一Reach权重进行离线CPU MuJoCo与GPU Warp配对评估。
 
-Uses mjlab's compiled model for the CPU reference (including scene attachment
-and solver settings). Never imports ROS or hardware drivers. This evaluates the
-current task observation encoding; it does not certify sim-to-real readiness.
+CPU使用mjlab编译模型，包括场景挂接与求解器设置。
+不导入ROS或硬件驱动；结果仅反映当前任务，不代表实机部署验收。
 """
 from __future__ import annotations
 
@@ -19,9 +18,9 @@ from tensordict import TensorDict
 
 from rebotarm_rl.backends.mjlab.runner import RecordedRunner
 from mjlab.envs import ManagerBasedRlEnv
-from mjlab.rl import MjlabOnPolicyRunner, RslRlVecEnvWrapper
+from mjlab.rl import RslRlVecEnvWrapper
 from mjlab.tasks.registry import load_env_cfg, load_rl_cfg
-from rebotarm_rl.backends.mjlab import registration  # Registers task; no hardware imports.
+from rebotarm_rl.backends.mjlab import registration  # 注册任务，不导入硬件。
 
 
 def pose(model, data, site):
@@ -42,17 +41,19 @@ def main():
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--episodes', type=int, default=10)
     parser.add_argument('--steps', type=int, default=250)
+    parser.add_argument('--task', choices=['RebotArm-Reach-Mjlab', 'RebotArm-Reach-Mjlab-V2'], default='RebotArm-Reach-Mjlab')
     parser.add_argument('--seed', type=int, default=20000)
     args = parser.parse_args()
     if args.episodes < 1 or args.steps < 1:
         parser.error('episodes and steps must be positive')
     checkpoint = args.checkpoint.resolve(strict=True)
-    task = 'RebotArm-Reach-Mjlab'
+    task = args.task
+    from rebotarm_rl.contracts.policy import contract_for_task
+    contract = contract_for_task(task)
     cfg = load_env_cfg(task, play=False)
     cfg.scene.num_envs = 1
     cfg.seed = args.seed
-    # Fixed length trajectory comparison: suppress automatic reset on success
-    # and timeout; compute first-success and final-success ourselves.
+    # 固定长度比较：关闭成功及超时自动重置，独立统计首次和最终成功。
     cfg.terminations = {}
     cfg.commands['reach'].position_radius = 0.0
     cfg.commands['reach'].resampling_time_range = (1e9, 1e9)
@@ -67,7 +68,7 @@ def main():
         base = env.unwrapped
         robot = base.scene['robot']
         command = base.command_manager.get_term('reach')
-        # Exactly the compiled training model, run through CPU mj_step.
+        # CPU通过mj_step运行同一份编译后的训练模型。
         model = base.sim.mj_model
         data = mujoco.MjData(model)
         site = int(robot.indexing.site_ids[command.site_id])
@@ -103,8 +104,13 @@ def main():
                 q_deltas.append(float(np.max(np.abs(data.qpos[qadr] - robot.data.joint_pos[0].cpu().numpy()))))
                 if step == args.steps:
                     break
-                # Match the current task's exact public observation encoding.
-                corient = 2 * (cquat[:3] * target_quat[3] - target_quat[:3] * cquat[3])
+                # 严格匹配所选任务的观测编码，不能混用V1与V2。
+                if task == "RebotArm-Reach-Mjlab-V2":
+                    from rebotarm_rl.backends.mjlab.rotation import rotation_error_wxyz
+                    corient = rotation_error_wxyz(torch.from_numpy(cquat),
+                                                   torch.from_numpy(target_quat)).numpy()
+                else:
+                    corient = 2 * (cquat[:3] * target_quat[3] - target_quat[:3] * cquat[3])
                 cpu_obs = np.concatenate([data.qpos[qadr[:6]] - default_q[:6],
                                           data.qvel[vadr[:6]], cpos - target, corient])
                 gpu_obs = base.observation_manager.compute_group('actor')
@@ -144,6 +150,7 @@ def main():
                 'mean_final_position_error_m': float(np.mean([r[backend]['final_position_error_m'] for r in rows])),
                 'mean_final_orientation_error_rad': float(np.mean([r[backend]['final_orientation_error_rad'] for r in rows]))}
         report = {'checkpoint': str(checkpoint), 'checkpoint_sha256': hashlib.sha256(checkpoint.read_bytes()).hexdigest(),
+                  'task': task, 'contract': contract.to_dict(),
                   'seed': args.seed, 'episodes': args.episodes, 'steps': args.steps,
                   'control_dt_s': cfg.decimation * model.opt.timestep,
                   'integrator': int(model.opt.integrator), 'max_initial_obs_delta': max_initial_obs_delta,

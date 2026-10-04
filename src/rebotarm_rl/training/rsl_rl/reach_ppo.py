@@ -21,9 +21,7 @@ def runner_cfg() -> RslRlOnPolicyRunnerCfg:
             lam=0.95,
             desired_kl=0.01,
         ),
-        # RSL-RL builds separate actor and critic networks.  This first task
-        # has no privileged state, so both networks intentionally consume the
-        # same public actor observation group.
+        # Actor和Critic各自建网；当前任务没有特权状态，使用同一公开观测组。
         obs_groups={"actor": ("actor",), "critic": ("actor",)},
         experiment_name="rebotarm_mjlab_reach",
         logger="tensorboard",

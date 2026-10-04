@@ -10,8 +10,7 @@ def _get_spec():
 ROBOT_CFG = EntityCfg(
     spec_fn=_get_spec,
     articulation=EntityArticulationInfoCfg(
-        # Wrap the six XML torque actuators; gripper actuators are intentionally
-        # excluded from this first Reach task.
+        # 仅包装XML中六个力矩执行器；Reach任务不控制夹爪。
         actuators=(XmlActuatorCfg(target_names_expr=("joint[1-6]",)),),
     ),
     init_state=EntityCfg.InitialStateCfg(

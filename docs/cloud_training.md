@@ -1,35 +1,25 @@
-# Cloud training
+# 云端训练
 
-1. Provision a Linux GPU machine compatible with the pinned CUDA profile.
-2. Clone this repository at a specific commit; create its own Python 3.12 environment.
-3. Install requirements/mjlab-cu130.txt and this project; fetch the pinned model.
-4. Check CUDA availability and task registration. Run a small headless smoke job.
-5. Run longer jobs via your scheduler or terminal session manager; upload checkpoints
-   and logs to persistent storage rather than the ephemeral instance disk alone.
-6. Record git revision, model_manifest.json, pip freeze, GPU/driver, seed, command and
-   evaluation metrics with every experiment. Retain normalization and model config.
-7. Evaluate against fixed targets and seeds before publishing a policy artifact.
+1. 准备与固定CUDA依赖兼容的Linux GPU机器。
+2. 克隆仓库并固定提交，创建独立Python 3.12环境。
+3. 安装requirements/mjlab-cu130.txt和本项目，获取固定版本模型。
+4. 检查CUDA和任务注册，先执行无窗口短训练。
+5. 通过作业调度器或终端会话管理器运行长任务，将权重和日志写入持久存储。
+6. 每次实验记录提交、模型清单、依赖、GPU/驱动、种子、命令和指标，并保存归一化及环境配置。
+7. 发布策略前使用固定目标与种子评估。
 
-No cloud credentials are stored here. Configure storage access through the provider's
-identity/secret mechanism. Cloud machines do not need to clone/build robotarm_ros2:
-the asset fetcher downloads immutable model resources directly.
+凭据通过云平台身份和密钥系统提供，不写入仓库。云机器无需克隆或构建ROS项目；资源获取器直接下载固定版本模型。
 
-Example smoke (single shell command):
-MUJOCO_GL=egl python -m mjlab.scripts.train RebotArm-Reach-Mjlab --env.scene.num-envs 8 --agent.max-iterations 1 --log-root runs/smoke
+```bash
+MUJOCO_GL=egl python -m mjlab.scripts.train RebotArm-Reach-Mjlab-V2 --env.scene.num-envs 8 --agent.max-iterations 1 --log-root runs/smoke-v2
+```
 
-The migration environment snapshot is diagnostic evidence, not a cross-platform lock.
-The pinned CUDA requirements are the installation entrypoint. For exact deployment,
-build and publish a tested container and pin its digest.
+迁移环境快照用于诊断，不是跨平台锁文件；安装入口为固定CUDA依赖文件。正式部署应构建测试过的容器并固定镜像摘要。
 
-Isaac Lab: create an external task project when implementation begins. Pin a compatible
-Isaac Lab/Isaac Sim/container version and use a separate environment. Reuse the robot
-parameter provenance and policy contract; do not assume identical physics or interchangeable
-checkpoints. No Isaac Lab task or cloud deployment has been implemented by this migration.
+Isaac Lab实现时在本仓库增加独立后端及任务，固定兼容的Isaac Lab、Isaac Sim与容器版本，运行环境与mjlab分离。复用机器人参数来源及策略契约，不假设物理或权重可互换。目前未实现Isaac任务和云部署。
 
+## 实验产物
 
-## Structured experiment artifacts
-The existing mjlab train command uses the registered RecordedRunner automatically.
-Each run includes run_manifest.json, model_manifest.json, dependencies.txt,
-compiled_model.mjb and native params/env.yaml + params/agent.yaml.
-Keep these alongside checkpoints when uploading to persistent storage.
-See development.md for dirty-worktree, resume and legacy-checkpoint rules.
+原生mjlab训练命令自动使用RecordedRunner。每次运行生成run_manifest.json、model_manifest.json、dependencies.txt、compiled_model.mjb及原生params/env.yaml、params/agent.yaml。上传时与权重一同保留；自定义模型需另存完整源资源。
+
+V2权重内嵌契约，恢复训练禁止跨版本。工作区修改状态、恢复来源和V1历史权重规则见[开发规范](development.md)。短训练和本地测试不代表云部署或收敛已验证。

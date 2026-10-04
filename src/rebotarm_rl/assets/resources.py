@@ -1,4 +1,4 @@
-"""Fetch immutable model resources; no ROS checkout or runtime dependency."""
+"""获取固定版本模型资源；不依赖ROS源码或运行环境。"""
 import argparse
 import hashlib
 from importlib.resources import files
@@ -26,10 +26,10 @@ def validate_model(directory: Path) -> None:
 
 
 def fetch_model(source: Path | None = None) -> Path:
-    """Install verified bytes atomically per file, resuming interrupted downloads.
+    """逐文件校验后原子安装，已完成文件可在中断后复用。
 
-    source optionally supplies an existing model directory, but must match the
-    manifest byte for byte. It is copied into the independent cache, never linked.
+    source可指定本地模型目录，但内容必须与清单完全一致。
+    资源复制到独立缓存，不建立对外部目录的符号链接。
     """
     spec = manifest()
     directory = model_directory()
@@ -61,8 +61,7 @@ def fetch_model(source: Path | None = None) -> Path:
 def reach_scene_path() -> Path:
     configured = os.environ.get("REBOTARM_MJLAB_SCENE")
     if configured:
-        # Explicit custom models are allowed for experiments; they are not
-        # claimed to match the pinned baseline.
+        # 自定义实验模型需要显式指定，不宣称与固定模型基线一致。
         path = Path(configured).expanduser().resolve()
         if not path.is_file():
             raise FileNotFoundError(f"Configured scene does not exist: {path}")

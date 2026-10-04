@@ -1,79 +1,66 @@
 # rebotarm_rl
 
-Independent reinforcement-learning project for reBotArm. Current implementation:
-mjlab + MuJoCo Warp + RSL-RL Reach training and CPU/GPU paired evaluation.
-Isaac Lab is a planned backend, not implemented yet.
-No ROS workspace, ROS runtime, motor SDK or real-arm connection is required.
+reBotArm独立强化学习项目。目前实现mjlab + MuJoCo Warp + RSL-RL的Reach训练，以及CPU/GPU配对评估。Isaac Lab尚未实现。训练不依赖ROS工作区、ROS运行时、电机SDK或实机连接。
 
-## Quick start (Ubuntu, Python 3.12, NVIDIA GPU)
+## 快速开始
 
-The initial CUDA profile is pinned in requirements/mjlab-cu130.txt. It retains
-the previously verified CUDA 13 profile; check driver compatibility before
-deploying to another machine. Isaac Lab must use a separate future environment.
+适用于Ubuntu、Python 3.12和NVIDIA GPU。安装入口为`requirements/mjlab-cu130.txt`；它固定已验证的CUDA 13依赖组合，换机器时需要检查驱动兼容性。未来Isaac Lab使用独立环境。
 
-~~~bash
+```bash
 git clone https://github.com/huangbinai/rebotarm_rl.git
 cd rebotarm_rl
 python3.12 -m venv .venv
 source .venv/bin/activate
-# Keep ROS Python paths out of the independent training environment.
+# 清除继承自ROS的路径，避免污染训练环境。
 unset PYTHONPATH AMENT_PREFIX_PATH COLCON_PREFIX_PATH
 python -m pip install -r requirements/mjlab-cu130.txt
 python -m pip install -e '.[test]'
 python -m rebotarm_rl.resources
 python -c "import torch; assert torch.cuda.is_available(); print(torch.cuda.get_device_name())"
 python -m mjlab.scripts.list_envs
-MUJOCO_GL=egl python -m mjlab.scripts.train RebotArm-Reach-Mjlab --env.scene.num-envs 128 --agent.max-iterations 1000 --log-root runs/mjlab
-~~~
+MUJOCO_GL=egl python -m mjlab.scripts.train RebotArm-Reach-Mjlab-V2 --env.scene.num-envs 128 --agent.max-iterations 1000 --log-root runs/mjlab-v2
+```
 
-The model fetcher downloads only files named in the packaged manifest, from an
-immutable robotarm_ros2 commit, verifying SHA-256 for every file. Cache:
-$XDG_CACHE_HOME/rebotarm_rl/models/<commit> (default ~/.cache).
-Training performs no implicit downloads and rejects missing or modified baseline files.
-The ROS repository remains the model source of truth. Update the manifest deliberately
-when adopting a new model; do not hand-edit downloaded cache files.
+新实验使用V2任务，其姿态观测为标准wxyz相对旋转向量。历史任务`RebotArm-Reach-Mjlab`保留V1输入语义。两者维度相同，但权重不能混用；V2需要重新训练。
 
-Offline import of a matching model bundle is also supported:
+模型获取器仅下载清单列出的文件，来源固定到robotarm_ros2不可变提交，并逐文件校验SHA-256。缓存路径为`$XDG_CACHE_HOME/rebotarm_rl/models/<commit>`，默认在`~/.cache`。训练不会隐式下载，基线资源缺失或被修改会报错。
 
-~~~bash
+ROS仓库仍是模型来源；采用新模型时显式更新清单，不手工修改缓存。也可从完全匹配的离线模型包导入：
+
+```bash
 python -m rebotarm_rl.resources --source /path/to/model-bundle
-~~~
+```
 
-Custom experiments may explicitly set REBOTARM_MJLAB_SCENE=/path/to/reach_scene.xml.
-Keep XML includes and meshes together. Custom models bypass baseline hash matching
-and must have their own provenance recorded in experiment results.
+自定义实验可设置`REBOTARM_MJLAB_SCENE=/path/to/reach_scene.xml`，需保留XML引用和网格文件。自定义模型不执行基线哈希匹配，实验清单会记录实际场景及编译模型哈希；复现实验时应同时保存完整资源。
 
-## Playback and evaluation
+## 回放与评估
 
-~~~bash
-python -m mjlab.scripts.play RebotArm-Reach-Mjlab --checkpoint-file /path/to/model.pt --env.scene.num-envs 1
-MUJOCO_GL=egl python -m rebotarm_rl.evaluation.paired_eval --checkpoint /path/to/model.pt --episodes 100 --steps 250 --seed 20000 --output runs/paired_eval.json
-~~~
+```bash
+python -m mjlab.scripts.play RebotArm-Reach-Mjlab-V2 --checkpoint-file /path/to/model.pt --env.scene.num-envs 1
+MUJOCO_GL=egl python -m rebotarm_rl.evaluation.paired_eval --task RebotArm-Reach-Mjlab-V2 --checkpoint /path/to/model.pt --episodes 100 --steps 250 --seed 20000 --output runs/paired_eval_v2.json
+```
 
-Short training proves pipeline operation, not convergence or hardware readiness.
-Current actions are six joint torques, not ROS position trajectories.
-See [the interface contract](docs/policy_contract.md) before deployment.
+V1历史权重请显式选用`RebotArm-Reach-Mjlab`。评估命令省略`--task`时仍默认V1，以保持历史命令兼容。仅加载可信来源的权重文件。
 
-## Layout and collaboration
+短训练只验证执行链路，不代表收敛或实机可用。当前动作是六关节力矩，不能当作ROS位置轨迹。部署前阅读[策略契约](docs/policy_contract.md)。
 
-- src/rebotarm_rl/backends/mjlab/tasks/: Reach observations, actions, rewards and termination.
-- src/rebotarm_rl/training/rsl_rl/: PPO/network configuration; RSL-RL owns algorithm implementation.
-- src/rebotarm_rl/backends/mjlab/evaluation/: fixed-target CPU MuJoCo / GPU Warp comparisons.
-- src/rebotarm_rl/assets/resources.py + model_manifest.json: independently fetched pinned assets.
-- requirements/: CUDA installation profile and migration environment snapshot.
-- tests/: portable contracts and model-resource integrity tests.
-- docs/: deployment boundaries, cloud workflow and migration provenance.
+## 结构与协作
 
-Run PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -I -m pytest tests -q and python -m compileall src/rebotarm_rl -q.
-Use branches and reviewed pull requests. CPU CI checks contracts/resources;
-GPU training and policy evaluation require a GPU runner or cloud job.
-Do not commit credentials, checkpoints, caches or videos. Store training outputs
-in an artifact/object store with code commit, model manifest, dependencies and seed.
+- `src/rebotarm_rl/backends/mjlab/tasks/`：任务观测、动作、奖励与终止。
+- `src/rebotarm_rl/training/rsl_rl/`：网络和PPO配置，算法实现由上游维护。
+- `src/rebotarm_rl/backends/mjlab/evaluation/`：固定目标的CPU/GPU比较。
+- `src/rebotarm_rl/assets/`：固定版本资源获取及完整性校验。
+- `requirements/`：安装依赖与迁移环境快照。
+- `tests/`：契约、资源及后端集成测试。
+- `docs/`：结构、开发、云训练与迁移记录。
 
-This repository was extracted with git subtree split from robotarm_ros2, preserving
-the history of its former rebotarm_rl/ subtree. Add this directory as a separate
-Codex project; AGENTS.md describes its boundaries.
+```bash
+PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -I -m pytest tests -q
+python -m compileall src/rebotarm_rl -q
+```
 
-Architecture: [结构规范](docs/architecture.md), [开发规范](docs/development.md).
-Named smoke commands: bash configs/experiments/reach_smoke.sh; evaluation uses configs/evaluation/reach_smoke.sh.
-The core package has no mandatory simulator dependency; install the pinned GPU requirements or the mjlab extra for training.
+保留V1短训练脚本`configs/experiments/reach_smoke.sh`；V2使用`configs/experiments/reach_v2_smoke.sh`和`configs/evaluation/reach_v2_smoke.sh`。基础包无强制仿真依赖；训练需安装固定GPU依赖或mjlab可选依赖。
+
+使用分支和PR协作。CPU CI检查契约和资源，GPU训练与评估需要GPU执行器。凭据、权重、缓存和视频不提交Git；训练产物存入对象存储并保留代码版本、模型、依赖和种子。
+
+本仓库通过`git subtree split`从robotarm_ros2提取，保留原`rebotarm_rl/`子树历史。可作为独立Codex项目管理。详见[代理规则](AGENTS.md)、[结构规范](docs/architecture.md)和[开发规范](docs/development.md)。

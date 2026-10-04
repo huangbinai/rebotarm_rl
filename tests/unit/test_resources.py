@@ -1,3 +1,4 @@
+"""验证固定模型资源的获取、完整性和独立缓存边界。"""
 import hashlib
 import pytest
 from rebotarm_rl.assets import resources

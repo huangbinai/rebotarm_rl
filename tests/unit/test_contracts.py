@@ -1,3 +1,4 @@
+"""验证契约序列化、维度检查与缺少Git来源时的明确记录。"""
 import json
 import pytest
 from rebotarm_rl.contracts.policy import REACH_V1

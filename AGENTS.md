@@ -1,15 +1,20 @@
-# Agent instructions
+# 代码代理工作规则
 
-Read README.md, docs/policy_contract.md, docs/cloud_training.md and docs/MIGRATION.md first. Also read docs/architecture.md and docs/development.md.
+先阅读README.md、docs/policy_contract.md、docs/cloud_training.md、docs/MIGRATION.md、docs/architecture.md和docs/development.md。
 
-This is an independent training repository, not a ROS package. Never add imports from
-rclpy, rebotarm_simulation, rebotarm_preview or rebotarmcontroller.
-Do not connect to physical hardware. Torque policies are not position trajectories.
-Preserve the mjlab task ID and action/observation semantics unless explicitly changing
-the task; version such changes and document checkpoint incompatibilities.
-Models come from the pinned model_manifest.json; do not depend on sibling directories.
-No credentials/checkpoints/videos/virtual environments in Git.
-Isaac Lab is planned, not implemented; keep its eventual runtime separate from mjlab.
-Checks: PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -I -m pytest tests -q; python -m compileall src/rebotarm_rl -q;
-git diff --check. Changes to task dynamics need a GPU smoke test and paired evaluation.
-Report smoke tests separately from convergence, generalization and hardware acceptance.
+这是独立训练仓库，不是ROS包。禁止导入rclpy、rebotarm_simulation、rebotarm_preview或rebotarmcontroller。
+禁止连接真实硬件。力矩策略不等于位置轨迹。
+保持已有mjlab任务名和动作、观测语义；显式修改任务时必须升级版本并说明权重不兼容性。
+模型通过固定版本model_manifest.json获取，不依赖相邻工作区。
+凭据、权重、视频和虚拟环境不进入Git。
+Isaac Lab尚未实现，未来必须与mjlab使用独立运行环境。
+
+必要检查：
+
+```bash
+PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -I -m pytest tests -q
+python -m compileall src/rebotarm_rl -q
+git diff --check
+```
+
+改变任务动力学必须执行GPU短训练和配对评估。报告中区分链路验证、策略收敛、泛化能力和实机验收。

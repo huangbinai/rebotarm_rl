@@ -1,3 +1,4 @@
+"""检查包依赖边界，避免训练代码重新耦合ROS或硬件。"""
 import ast
 from pathlib import Path
 import subprocess

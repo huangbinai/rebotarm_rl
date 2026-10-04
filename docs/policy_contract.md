@@ -1,35 +1,41 @@
-# Reach v1 interface boundary
+# Reach策略接口与版本
 
-Task ID: RebotArm-Reach-Mjlab. Migration preserves task/controller semantics.
-The executable task configuration in src/rebotarm_rl/backends/mjlab/tasks/reach/config.py is authoritative.
+任务配置以`src/rebotarm_rl/backends/mjlab/tasks/reach/config.py`为准，契约定义在`contracts/policy.py`。
 
-- Six effort actions address joint1..joint6, scale 1.0, torque units N m.
-  Model actuator limits and runner clipping remain authoritative.
-- Physics timestep: 0.002 s; decimation: 10; policy action period: 0.02 s.
-- Actor observations concatenate relative joint positions, relative joint velocities,
-  target position error and orientation error, in the order defined in reach.py.
-  Both actor and critic consume the actor observation group.
-- MuJoCo/mjlab native pose quaternions use wxyz; ROS quaternion messages use xyzw.
-  Do not copy quaternion arrays directly into ROS messages.
-- Success threshold: position error < 0.01 m and orientation error < 0.05236 rad.
-- Checkpoint deployment must retain observation preprocessing/normalization,
-  action scaling, joint mapping, timestep, target frame and model provenance.
-- No ROS publisher, Action client or hardware driver is part of this project.
-  A future local deployment adapter must validate freshness, units, limits and
-  supported hardware control mode before enabling any physical execution.
-- A six-torque vector cannot be sent as six positions to FollowJointTrajectory.
-- CPU/GPU comparisons use the mjlab-compiled model. They do not prove equivalent
-  behavior to ROS position-control simulation or physical hardware.
+## 共同约定
 
+- 动作：joint1至joint6的六个关节力矩，单位N·m，缩放1.0；执行器限幅和训练器裁剪仍生效。
+- 时序：物理步长0.002秒，每10步执行一次策略，即动作周期0.02秒。
+- 观测：六个相对关节位置、六个相对关节速度、三维位置误差、三维姿态误差，共18维。Actor与Critic使用相同观测组。
+- 位置误差：世界系current减target，单位m。
+- 四元数：MuJoCo/mjlab使用wxyz，ROS消息使用xyzw，禁止直接复制数组。
+- 成功条件：位置误差小于0.01m且姿态角误差小于0.05236rad。奖励和成功指标始终使用标准四元数角差。
+- 目标：初始TCP附近的位置，姿态保持初始姿态；现有orientation_radius字段尚未参与目标采样。
 
-## Executable contract and historical encoding
-contracts/policy.py defines reach-effort-v1. Runtime checks observation/action sizes
-(18/6), field order, action scaling and timing before training.
-Position error is current minus target in world coordinates.
-Orientation observations preserve the legacy formula:
-2 * (current[:3] * target[3] - target[:3] * current[3]), after normalization.
-Despite the old axis-angle comment, this is not a standard wxyz quaternion
-relative-rotation/axis-angle calculation. It remains unchanged to preserve
-checkpoint inputs. Any correction requires a separately versioned task.
-Success/reward orientation metrics still use quat_error_magnitude.
-Legacy checkpoints without manifests load with an explicit compatibility warning.
+## V1历史任务
+
+任务名`RebotArm-Reach-Mjlab`，契约`reach-effort-v1`。
+姿态观测保留归一化后历史公式：
+
+```python
+2 * (current[:3] * target[3] - target[:3] * current[3])
+```
+
+这不是标准wxyz相对旋转公式。仅为保持旧权重输入而保留，禁止静默修正。无内嵌契约也无旁置清单的V1旧权重允许加载，但发出未验证兼容性的警告。
+
+## V2新任务
+
+任务名`RebotArm-Reach-Mjlab-V2`，契约`reach-effort-v2`。
+姿态观测为世界系`current * inverse(target)`的最短旋转向量，单位rad，长度为旋转角。它描述从目标姿态旋转到当前姿态的误差；交换两者时在非π边界处符号反转。
+
+实现先归一化有限非零四元数，再选择最短弧；q与-q等价。恰好π时固定绝对值最大轴分量为正，π附近存在旋转对数映射固有的不连续。接近零时使用极限展开避免除零。GPU观测和CPU配对评估调用同一实现，测试使用独立旋转矩阵参照。
+
+V2仅改变姿态观测，奖励、成功条件、动力学、动作和PPO参数保持不变。独立实验目录为`rebotarm_mjlab_reach_v2`。
+
+## 权重与部署边界
+
+保存权重时写入内嵌policy_contract，加载前检查内嵌契约和存在的run_manifest.json。V2拒绝无内嵌契约的权重；仅复制权重文件仍保留身份。V1与V2互相拒绝加载，不能靠相同18/6维度判断兼容，也不能修改元数据把旧权重伪装成V2。V2从头训练。
+
+部署必须保留归一化、动作缩放、关节顺序、时序、目标坐标系和模型来源。本仓库不包含ROS发布器、Action客户端或硬件驱动。未来部署适配器需要验证反馈时效、单位、限幅和硬件支持的控制模式。六维力矩不能作为六个位置发送给FollowJointTrajectory。
+
+CPU/GPU比较使用mjlab编译模型，不代表与ROS位置控制仿真或实机等效。

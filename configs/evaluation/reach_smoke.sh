@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 if [[ $# -lt 2 ]]; then
-  echo "Usage: bash configs/evaluation/reach_smoke.sh CHECKPOINT OUTPUT [extra flags]" >&2
+  echo "用法: bash configs/evaluation/reach_smoke.sh 权重路径 输出路径 [附加参数]" >&2
   exit 2
 fi
 checkpoint="$1"
