@@ -31,10 +31,14 @@ python -m mjlab.scripts.list_envs
 正式训练前先提交代码并保持工作区干净；每次记录提交号，不复制Git差异或源码。
 
 ```bash
-MUJOCO_GL=egl python -m mjlab.scripts.train RebotArm-Reach-Mjlab --env.scene.num-envs 128 --agent.max-iterations 1000 --log-root runs/train
+python scripts/train.py --experiment reach_baseline --seed 7
 ```
 
-首次运行可先用`bash configs/experiments/reach_smoke.sh`完成短训练。短训练用于检查运行链路，不代表策略已经收敛。
+首次运行可先用`python scripts/train.py --experiment reach_smoke`完成短训练。短训练用于检查运行链路，不代表策略已经收敛。
+
+统一入口默认选择`reach_baseline`；实验覆盖在`configs/experiments/*.toml`，奖励和网络仍由原生任务配置管理。使用`--dry-run`预览命令，使用`--environment 名称`关联已有依赖快照，详见[训练记录与产物](docs/experiments.md)。
+
+VS Code选择本项目`.venv/bin/python`解释器，打开`scripts/train.py`并点击“运行 Python 文件”，即启动默认正式基线。通过集成终端传入参数可选择其他实验。
 
 ## 回放与评估
 

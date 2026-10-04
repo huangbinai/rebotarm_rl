@@ -1,5 +1,31 @@
 # 训练记录与产物
 
+## 统一训练入口
+
+在独立虚拟环境中运行仓库的`scripts/train.py`，从任意工作目录传入脚本路径均可；入口自动切换到仓库根目录，使用当前Python解释器执行mjlab原生CLI。默认实验为`reach_baseline`。
+
+```bash
+python scripts/train.py --experiment reach_baseline --seed 7 --dry-run
+python scripts/train.py --experiment reach_baseline --seed 7
+python scripts/train.py --experiment reach_smoke
+```
+
+`configs/experiments/*.toml`只记录命名实验覆盖：`task`、`run_kind`、`seed`和`[args]`。参数表使用带引号的原生CLI键，例如`"agent.max-iterations" = 1000`。目前支持字符串和数值；网络结构等复杂配置仍放在原生配置中。未知原生参数由mjlab拒绝，不自行实现第二套训练配置系统。
+
+新增实验时新增TOML，不复制训练脚本。`--seed`优先于TOML种子；运行名为`实验名_seed种子`，输出根目录由`run_kind`选择`runs/train`或`runs/smoke`。这些字段由入口管理，不在`[args]`中重复定义。基线使用128环境、24步采样、1000轮更新；短验证使用同样并行规模、2轮更新。原来的训练`configs/experiments/reach_smoke.sh`已由命名实验取代；评估脚本不变。
+
+入口固定使用仓库模型，移除继承的ROS/PYTHONPATH和自定义模型路径，设置EGL及实验类型；不修改父终端环境。需要自定义模型或原生复杂参数时直接使用mjlab CLI，并遵守模型与契约规则。
+
+入口在启动GPU前检查正式训练的Git提交与干净状态，后端保留二次检查；`--dry-run`不执行该检查、不启动训练、不写产物。Ctrl+C直接交给原生训练处理。训练期间不要修改源码或实验配置。
+
+使用`--environment 名称`引用`runs/environments/名称.txt`，不存在或为空时拒绝启动。入口不继承`REBOTARM_RL_ENVIRONMENT`，未指定时记录当前Python环境路径，不自动生成快照。快照是否仍匹配当前依赖需要使用者确认；更新依赖后应生成新快照。
+
+```bash
+python scripts/train.py --experiment reach_baseline --environment 2026-10-04-preflight
+```
+
+上例仅适用于已存在且仍匹配的快照。运行记录保存展开后的原生命令，最终配置仍由mjlab写入`params/`；实验TOML由Git提交追溯，不另存重复配置。入口不自动评估或生成分析，训练后按下文独立评估。
+
 ## 默认输出
 
 使用mjlab原生目录，短训练指定`--log-root runs/smoke`，正式训练指定`--log-root runs/train`。上游在其下创建`<实验名>/<时间戳>[_run_name]/`。恢复训练创建新目录，记录来源权重路径及哈希。
@@ -33,7 +59,7 @@ export REBOTARM_RL_ENVIRONMENT=2026-10-04
 固定模型随项目的`assets/rebotarm/`分发，由`assets/model_manifest.json`校验，运行目录不重复复制来源清单。默认不保存编译模型；排查或正式归档时显式设置：
 
 ```bash
-REBOTARM_RL_SAVE_COMPILED_MODEL=1 bash configs/experiments/reach_smoke.sh
+REBOTARM_RL_SAVE_COMPILED_MODEL=1 python scripts/train.py --experiment reach_smoke
 ```
 
 此时在运行目录生成`compiled_model.mjb`。MJB用于同版本MuJoCo复查，不代表完整训练状态或跨版本精确复现。自定义场景需另存完整XML、网格等源资源。本项目不建立模型去重或共享引用系统。
