@@ -9,23 +9,23 @@ import tempfile
 from urllib.request import urlopen
 
 
-def manifest():
-    return json.loads(files("rebotarm_rl").joinpath("model_manifest.json").read_text())
+def manifest() -> dict:
+    return json.loads(files("rebotarm_rl.assets").joinpath("model_manifest.json").read_text())
 
 
-def model_directory():
+def model_directory() -> Path:
     cache = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache"))
     return cache / "rebotarm_rl" / "models" / manifest()["commit"]
 
 
-def validate_model(directory):
+def validate_model(directory: Path) -> None:
     for name, expected in manifest()["files"].items():
         path = Path(directory) / name
         if not path.is_file() or hashlib.sha256(path.read_bytes()).hexdigest() != expected:
             raise ValueError(f"Missing or changed pinned model resource: {path}")
 
 
-def fetch_model(source=None):
+def fetch_model(source: Path | None = None) -> Path:
     """Install verified bytes atomically per file, resuming interrupted downloads.
 
     source optionally supplies an existing model directory, but must match the
@@ -58,7 +58,7 @@ def fetch_model(source=None):
     return directory / "reach_scene.xml"
 
 
-def reach_scene_path():
+def reach_scene_path() -> Path:
     configured = os.environ.get("REBOTARM_MJLAB_SCENE")
     if configured:
         # Explicit custom models are allowed for experiments; they are not
@@ -78,7 +78,7 @@ def reach_scene_path():
     return directory / "reach_scene.xml"
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source", type=Path, help="Optional matching local model directory")
     args = parser.parse_args()

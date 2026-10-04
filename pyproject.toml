@@ -7,25 +7,26 @@ name = "rebotarm-rl"
 version = "0.1.0"
 description = "reBotArm mjlab tasks, training configuration and policy evaluation"
 requires-python = ">=3.12"
-dependencies = ["mjlab==1.6.0", "numpy>=1.26", "torch>=2.7", "tensordict"]
+dependencies = []
 
 [project.urls]
 Repository = "https://github.com/huangbinai/rebotarm_rl"
 Issues = "https://github.com/huangbinai/rebotarm_rl/issues"
 
 [project.entry-points."mjlab.tasks"]
-rebotarm_reach = "rebotarm_rl.tasks.reach"
+rebotarm_reach = "rebotarm_rl.backends.mjlab.registration"
 
 [project.scripts]
-rebotarm-rl-fetch-model = "rebotarm_rl.resources:main"
-rebotarm-rl-paired-eval = "rebotarm_rl.evaluation.paired_eval:main"
+rebotarm-rl-fetch-model = "rebotarm_rl.assets.resources:main"
+rebotarm-rl-paired-eval = "rebotarm_rl.backends.mjlab.evaluation.paired_eval:main"
 
 [tool.setuptools.packages.find]
-where = ["."]
+where = ["src"]
 include = ["rebotarm_rl*"]
 
 [tool.setuptools.package-data]
-rebotarm_rl = ["model_manifest.json"]
+"rebotarm_rl.assets" = ["model_manifest.json"]
 
 [project.optional-dependencies]
 test = ["pytest>=8"]
+mjlab = ["mjlab==1.6.0", "numpy>=1.26", "torch>=2.7", "tensordict"]

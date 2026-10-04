@@ -1,7 +1,7 @@
 # Reach v1 interface boundary
 
 Task ID: RebotArm-Reach-Mjlab. Migration preserves task/controller semantics.
-The executable task configuration in rebotarm_rl/tasks/reach.py is authoritative.
+The executable task configuration in src/rebotarm_rl/backends/mjlab/tasks/reach/config.py is authoritative.
 
 - Six effort actions address joint1..joint6, scale 1.0, torque units N m.
   Model actuator limits and runner clipping remain authoritative.
@@ -20,3 +20,16 @@ The executable task configuration in rebotarm_rl/tasks/reach.py is authoritative
 - A six-torque vector cannot be sent as six positions to FollowJointTrajectory.
 - CPU/GPU comparisons use the mjlab-compiled model. They do not prove equivalent
   behavior to ROS position-control simulation or physical hardware.
+
+
+## Executable contract and historical encoding
+contracts/policy.py defines reach-effort-v1. Runtime checks observation/action sizes
+(18/6), field order, action scaling and timing before training.
+Position error is current minus target in world coordinates.
+Orientation observations preserve the legacy formula:
+2 * (current[:3] * target[3] - target[:3] * current[3]), after normalization.
+Despite the old axis-angle comment, this is not a standard wxyz quaternion
+relative-rotation/axis-angle calculation. It remains unchanged to preserve
+checkpoint inputs. Any correction requires a separately versioned task.
+Success/reward orientation metrics still use quat_error_magnitude.
+Legacy checkpoints without manifests load with an explicit compatibility warning.

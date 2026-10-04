@@ -11,4 +11,4 @@ jobs:
       - run: python -m pip install setuptools pytest
       - run: python -m pip install -e . --no-deps --no-build-isolation
       - run: PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -I -m pytest tests -q
-      - run: python -m compileall rebotarm_rl -q
+      - run: python -m compileall src/rebotarm_rl -q

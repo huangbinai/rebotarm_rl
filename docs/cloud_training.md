@@ -25,3 +25,11 @@ Isaac Lab: create an external task project when implementation begins. Pin a com
 Isaac Lab/Isaac Sim/container version and use a separate environment. Reuse the robot
 parameter provenance and policy contract; do not assume identical physics or interchangeable
 checkpoints. No Isaac Lab task or cloud deployment has been implemented by this migration.
+
+
+## Structured experiment artifacts
+The existing mjlab train command uses the registered RecordedRunner automatically.
+Each run includes run_manifest.json, model_manifest.json, dependencies.txt,
+compiled_model.mjb and native params/env.yaml + params/agent.yaml.
+Keep these alongside checkpoints when uploading to persistent storage.
+See development.md for dirty-worktree, resume and legacy-checkpoint rules.

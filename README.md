@@ -56,15 +56,15 @@ See [the interface contract](docs/policy_contract.md) before deployment.
 
 ## Layout and collaboration
 
-- rebotarm_rl/tasks/: Reach observations, actions, rewards and termination.
-- rebotarm_rl/agents/: PPO/network configuration; RSL-RL owns algorithm implementation.
-- rebotarm_rl/evaluation/: fixed-target CPU MuJoCo / GPU Warp comparisons.
-- rebotarm_rl/resources.py + model_manifest.json: independently fetched pinned assets.
+- src/rebotarm_rl/backends/mjlab/tasks/: Reach observations, actions, rewards and termination.
+- src/rebotarm_rl/training/rsl_rl/: PPO/network configuration; RSL-RL owns algorithm implementation.
+- src/rebotarm_rl/backends/mjlab/evaluation/: fixed-target CPU MuJoCo / GPU Warp comparisons.
+- src/rebotarm_rl/assets/resources.py + model_manifest.json: independently fetched pinned assets.
 - requirements/: CUDA installation profile and migration environment snapshot.
 - tests/: portable contracts and model-resource integrity tests.
 - docs/: deployment boundaries, cloud workflow and migration provenance.
 
-Run PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -I -m pytest tests -q and python -m compileall rebotarm_rl -q.
+Run PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -I -m pytest tests -q and python -m compileall src/rebotarm_rl -q.
 Use branches and reviewed pull requests. CPU CI checks contracts/resources;
 GPU training and policy evaluation require a GPU runner or cloud job.
 Do not commit credentials, checkpoints, caches or videos. Store training outputs
@@ -73,3 +73,7 @@ in an artifact/object store with code commit, model manifest, dependencies and s
 This repository was extracted with git subtree split from robotarm_ros2, preserving
 the history of its former rebotarm_rl/ subtree. Add this directory as a separate
 Codex project; AGENTS.md describes its boundaries.
+
+Architecture: [结构规范](docs/architecture.md), [开发规范](docs/development.md).
+Named smoke commands: bash configs/experiments/reach_smoke.sh; evaluation uses configs/evaluation/reach_smoke.sh.
+The core package has no mandatory simulator dependency; install the pinned GPU requirements or the mjlab extra for training.

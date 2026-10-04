@@ -1,6 +1,6 @@
 import hashlib
 import pytest
-from rebotarm_rl import resources
+from rebotarm_rl.assets import resources
 
 
 @pytest.fixture

@@ -1,7 +1,7 @@
 """Reach PPO 配置；算法实现使用 mjlab / RSL-RL。"""
 from mjlab.rl import RslRlModelCfg, RslRlOnPolicyRunnerCfg, RslRlPpoAlgorithmCfg
 
-def _runner_cfg() -> RslRlOnPolicyRunnerCfg:
+def runner_cfg() -> RslRlOnPolicyRunnerCfg:
     return RslRlOnPolicyRunnerCfg(
         actor=RslRlModelCfg(
             hidden_dims=(128, 128),

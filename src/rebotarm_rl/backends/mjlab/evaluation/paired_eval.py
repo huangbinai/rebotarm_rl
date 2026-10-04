@@ -17,10 +17,11 @@ import numpy as np
 import torch
 from tensordict import TensorDict
 
+from rebotarm_rl.backends.mjlab.runner import RecordedRunner
 from mjlab.envs import ManagerBasedRlEnv
 from mjlab.rl import MjlabOnPolicyRunner, RslRlVecEnvWrapper
 from mjlab.tasks.registry import load_env_cfg, load_rl_cfg
-from rebotarm_rl.tasks import reach  # Registers task; no hardware imports.
+from rebotarm_rl.backends.mjlab import registration  # Registers task; no hardware imports.
 
 
 def pose(model, data, site):
@@ -59,7 +60,7 @@ def main():
     env = RslRlVecEnvWrapper(ManagerBasedRlEnv(cfg, device='cuda:0'),
                             clip_actions=rl_cfg.clip_actions)
     try:
-        runner = MjlabOnPolicyRunner(env, asdict(rl_cfg), device='cuda:0')
+        runner = RecordedRunner(env, asdict(rl_cfg), device='cuda:0')
         runner.load(str(checkpoint), load_cfg={'actor': True}, strict=True,
                     map_location='cuda:0')
         policy = runner.get_inference_policy(device='cuda:0')
