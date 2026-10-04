@@ -1,4 +1,4 @@
-"""验证固定模型资源的获取、完整性和独立缓存边界。"""
+"""验证随包模型的完整性与自定义场景入口。"""
 import hashlib
 import pytest
 from rebotarm_rl.assets import resources
@@ -14,31 +14,31 @@ def bundle(tmp_path, monkeypatch):
         p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in source.iterdir()
     }}
     monkeypatch.setattr(resources, "manifest", lambda: spec)
-    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "cache"))
+    monkeypatch.setattr(resources, "model_directory", lambda: source)
     monkeypatch.delenv("REBOTARM_MJLAB_SCENE", raising=False)
     return source
 
 
-def test_local_bundle_is_copied_and_verified_without_source_dependency(bundle):
-    scene = resources.fetch_model(bundle)
-    (bundle / "reach_scene.xml").unlink()
-    assert resources.reach_scene_path() == scene
-    scene.write_text("corrupt")
+def test_bundled_model_is_verified(bundle):
+    assert resources.reach_scene_path() == bundle / "reach_scene.xml"
+    (bundle / "robot.xml").write_text("corrupt")
     with pytest.raises(FileNotFoundError, match="modified"):
         resources.reach_scene_path()
 
 
-def test_bad_input_is_rejected(bundle):
-    (bundle / "robot.xml").write_text("bad")
-    with pytest.raises(ValueError, match="checksum"):
-        resources.fetch_model(bundle)
-    with pytest.raises(FileNotFoundError):
+def test_missing_bundle_is_rejected(bundle):
+    (bundle / "reach_scene.xml").unlink()
+    with pytest.raises(FileNotFoundError, match="Bundled model"):
         resources.reach_scene_path()
 
 
-def test_missing_bundle_requires_explicit_fetch(bundle):
-    with pytest.raises(FileNotFoundError, match="fetch-model"):
-        resources.reach_scene_path()
+def test_packaged_model_ignores_external_cache(tmp_path, monkeypatch):
+    monkeypatch.delenv("REBOTARM_MJLAB_SCENE", raising=False)
+    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "empty-cache"))
+    scene = resources.reach_scene_path()
+    assert scene.parent.name == "rebotarm"
+    assert scene.is_file()
+    assert not (tmp_path / "empty-cache").exists()
 
 
 def test_explicit_custom_scene_is_not_silently_replaced(bundle, monkeypatch):

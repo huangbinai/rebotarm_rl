@@ -41,8 +41,11 @@ def main():
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--episodes', type=int, default=10)
     parser.add_argument('--steps', type=int, default=250)
-    parser.add_argument('--task', choices=['RebotArm-Reach-Mjlab', 'RebotArm-Reach-Mjlab-V2'], default='RebotArm-Reach-Mjlab')
+    parser.add_argument('--task', choices=['RebotArm-Reach-Mjlab'], default='RebotArm-Reach-Mjlab')
     parser.add_argument('--seed', type=int, default=20000)
+    parser.add_argument('--save-trajectories', action='store_true',
+                        help='保留逐步误差轨迹，正式评估或诊断时使用')
+    parser.add_argument('--selection-reason', help='选定此权重的依据；省略表示仅评估')
     args = parser.parse_args()
     if args.episodes < 1 or args.steps < 1:
         parser.error('episodes and steps must be positive')
@@ -87,6 +90,8 @@ def main():
             env.reset()
             data.qpos[qadr] = robot.data.joint_pos[0].cpu().numpy()
             data.qvel[vadr] = robot.data.joint_vel[0].cpu().numpy()
+            initial_qpos = data.qpos[qadr].copy()
+            initial_qvel = data.qvel[vadr].copy()
             home_pos, home_quat = pose(model, data, site)
             direction = rng.normal(size=3)
             target = home_pos + direction / np.linalg.norm(direction) * rng.uniform(0, .06)
@@ -100,17 +105,13 @@ def main():
                 gpose = robot.data.site_pose_w[0, command.site_id].cpu().numpy()
                 for backend, p, q in [('cpu', cpos, cquat), ('gpu', gpose[:3], gpose[3:])]:
                     pe, oe = errors(p, q, target, target_quat)
-                    results[backend].append([pe, oe, bool(pe < .01 and oe < .05236)])
+                    results[backend].append([pe, oe, bool(pe < contract.success_position_m and oe < contract.success_orientation_rad)])
                 q_deltas.append(float(np.max(np.abs(data.qpos[qadr] - robot.data.joint_pos[0].cpu().numpy()))))
                 if step == args.steps:
                     break
-                # 严格匹配所选任务的观测编码，不能混用V1与V2。
-                if task == "RebotArm-Reach-Mjlab-V2":
-                    from rebotarm_rl.backends.mjlab.rotation import rotation_error_wxyz
-                    corient = rotation_error_wxyz(torch.from_numpy(cquat),
-                                                   torch.from_numpy(target_quat)).numpy()
-                else:
-                    corient = 2 * (cquat[:3] * target_quat[3] - target_quat[:3] * cquat[3])
+                from rebotarm_rl.backends.mjlab.rotation import rotation_error_wxyz
+                corient = rotation_error_wxyz(torch.from_numpy(cquat),
+                                               torch.from_numpy(target_quat)).numpy()
                 cpu_obs = np.concatenate([data.qpos[qadr[:6]] - default_q[:6],
                                           data.qvel[vadr[:6]], cpos - target, corient])
                 gpu_obs = base.observation_manager.compute_group('actor')
@@ -134,14 +135,17 @@ def main():
                     raise ValueError('Non-finite trajectory')
             row = {'episode': episode, 'target_position_m': target.tolist(),
                    'target_quaternion_wxyz': target_quat.tolist(),
+                   'initial_joint_position_rad': initial_qpos.tolist(),
+                   'initial_joint_velocity_rad_s': initial_qvel.tolist(),
                    'max_joint_trajectory_delta_rad': max(q_deltas)}
             for backend in results:
                 trajectory = results[backend]
                 row[backend] = {'final_position_error_m': trajectory[-1][0],
                                 'final_orientation_error_rad': trajectory[-1][1],
                                 'final_success': trajectory[-1][2],
-                                'first_success_step': next((i for i, v in enumerate(trajectory) if v[2]), None),
-                                'error_trajectory': trajectory}
+                                'first_success_step': next((i for i, v in enumerate(trajectory) if v[2]), None)}
+                if args.save_trajectories:
+                    row[backend]['error_trajectory'] = trajectory
             rows.append(row)
         summary = {}
         for backend in ('cpu', 'gpu'):
@@ -149,12 +153,28 @@ def main():
                 'final_success_count': sum(r[backend]['final_success'] for r in rows),
                 'mean_final_position_error_m': float(np.mean([r[backend]['final_position_error_m'] for r in rows])),
                 'mean_final_orientation_error_rad': float(np.mean([r[backend]['final_orientation_error_rad'] for r in rows]))}
+        conditions = {
+            'backends': ['cpu_mujoco', 'gpu_warp'], 'device': 'cuda:0',
+            'deterministic_policy': True, 'clip_actions': rl_cfg.clip_actions,
+            'actuator_limits': 'compiled model actuator limits',
+            'automatic_termination': False,
+            'target_position': {'center': 'initial TCP world position',
+                                'direction': 'normalized NumPy standard normal vector',
+                                'radius_uniform_m': [0.0, 0.06]},
+            'target_orientation': 'initial TCP world orientation',
+            'initial_state': 'environment reset; CPU copies GPU joint position and velocity',
+            'success_position_m': contract.success_position_m,
+            'success_orientation_rad': contract.success_orientation_rad,
+            'physics_dt_s': model.opt.timestep, 'decimation': cfg.decimation,
+            'trajectories_saved': args.save_trajectories,
+        }
         report = {'checkpoint': str(checkpoint), 'checkpoint_sha256': hashlib.sha256(checkpoint.read_bytes()).hexdigest(),
                   'task': task, 'contract': contract.to_dict(),
+                  'conditions': conditions, 'selection_reason': args.selection_reason,
                   'seed': args.seed, 'episodes': args.episodes, 'steps': args.steps,
                   'control_dt_s': cfg.decimation * model.opt.timestep,
                   'integrator': int(model.opt.integrator), 'max_initial_obs_delta': max_initial_obs_delta,
-                  'scope': 'Closed-loop deterministic smoke checkpoint evaluation; not convergence or hardware acceptance',
+                  'scope': 'Deterministic CPU/GPU paired evaluation; alone does not establish convergence, generalization or hardware acceptance',
                   'summary': summary, 'results': rows}
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(json.dumps(report, indent=2, allow_nan=False) + '\n')

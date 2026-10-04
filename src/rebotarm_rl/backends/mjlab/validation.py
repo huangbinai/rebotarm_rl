@@ -1,6 +1,6 @@
 """在创建训练器之前校验最终配置，并识别对应的策略契约。"""
-from rebotarm_rl.contracts.policy import REACH_V1, REACH_V2, PolicyContract
-from .tasks.reach.observations import orientation_error, orientation_error_v2
+from rebotarm_rl.contracts.policy import REACH_V1, PolicyContract
+from .tasks.reach.observations import orientation_error
 
 
 def validate_config(cfg) -> PolicyContract:
@@ -8,8 +8,6 @@ def validate_config(cfg) -> PolicyContract:
     fn = cfg.observations["actor"].terms["orientation_error"].func
     if fn is orientation_error:
         c = REACH_V1
-    elif fn is orientation_error_v2:
-        c = REACH_V2
     else:
         raise ValueError("未注册的姿态编码，不能推断策略契约")
     action = cfg.actions["joint_effort"]

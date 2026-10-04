@@ -1,4 +1,4 @@
-"""用独立旋转矩阵参照和权重文件验证V2语义及版本隔离。"""
+"""用独立旋转矩阵参照和权重文件验证姿态观测语义及权重契约。"""
 import json
 import math
 import pytest
@@ -41,41 +41,30 @@ def test_world_frame_against_independent_matrix_reference():
         torch.testing.assert_close(rotation_error_wxyz(a.cuda(), b.cuda()).cpu(), actual)
 
 
-def test_v1_v2_config_only_changes_orientation():
-    pytest.importorskip('mjlab')
-    from rebotarm_rl.backends.mjlab.tasks.reach.config import make_env_cfg
-    from rebotarm_rl.backends.mjlab.validation import validate_config
-    from rebotarm_rl.contracts.policy import REACH_V1, REACH_V2
-    a, b = make_env_cfg(), make_env_cfg(version=2)
-    assert validate_config(a) == REACH_V1
-    assert validate_config(b) == REACH_V2
-    assert a.actions == b.actions
-    assert a.rewards == b.rewards
-    assert a.terminations == b.terminations
-    assert a.decimation == b.decimation
-    assert a.sim == b.sim
-    assert a.commands == b.commands
-    with pytest.raises(ValueError):
-        make_env_cfg(version=3)
-
-
-def test_checkpoint_version_guards(tmp_path):
+def test_checkpoint_contract_guards(tmp_path):
     pytest.importorskip('mjlab')
     from rebotarm_rl.backends.mjlab.runner import validate_checkpoint_contract
-    from rebotarm_rl.contracts.policy import REACH_V1, REACH_V2
+    from rebotarm_rl.contracts.policy import REACH_V1
     path = tmp_path / 'copied.pt'
-    for saved, other in ((REACH_V1, REACH_V2), (REACH_V2, REACH_V1)):
-        torch.save({'infos': {'policy_contract': saved.to_dict()}}, path)
-        validate_checkpoint_contract(path, saved)
+    contract = REACH_V1.to_dict()
+    torch.save({'infos': {'policy_contract': contract}}, path)
+    validate_checkpoint_contract(path, REACH_V1)
+    for field in ('version', 'orientation_encoding'):
+        incompatible = contract | {field: 'incompatible'}
+        torch.save({'infos': {'policy_contract': incompatible}}, path)
         with pytest.raises(ValueError):
-            validate_checkpoint_contract(path, other)
+            validate_checkpoint_contract(path, REACH_V1)
+    torch.save({'infos': {'policy_contract': contract}}, path)
     manifest = tmp_path / 'run_manifest.json'
-    manifest.write_text(json.dumps({'contract': REACH_V1.to_dict()}))
+    manifest.write_text(json.dumps({'schema_version': 2}))
+    validate_checkpoint_contract(path, REACH_V1)
+    manifest.write_text(json.dumps({'contract': contract | {'action_scale': 2.0}}))
     with pytest.raises(ValueError):
-        validate_checkpoint_contract(path, REACH_V2)
-    manifest.unlink()
+        validate_checkpoint_contract(path, REACH_V1)
+    manifest.write_text(json.dumps({'contract': contract}))
     torch.save({'infos': None}, path)
     with pytest.raises(ValueError):
-        validate_checkpoint_contract(path, REACH_V2)
-    with pytest.warns(UserWarning):
+        validate_checkpoint_contract(path, REACH_V1)
+    manifest.unlink()
+    with pytest.raises(ValueError):
         validate_checkpoint_contract(path, REACH_V1)

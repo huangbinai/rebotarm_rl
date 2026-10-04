@@ -12,15 +12,3 @@ register_mjlab_task(
     rl_cfg=runner_cfg(),
     runner_cls=RecordedRunner,
 )
-
-
-# V2使用独立实验目录，防止恢复训练时选中V1权重；PPO参数不变。
-v2_runner_cfg = runner_cfg()
-v2_runner_cfg.experiment_name = "rebotarm_mjlab_reach_v2"
-register_mjlab_task(
-    task_id="RebotArm-Reach-Mjlab-V2",
-    env_cfg=make_env_cfg(version=2),
-    play_env_cfg=make_env_cfg(play=True, num_envs=1, version=2),
-    rl_cfg=v2_runner_cfg,
-    runner_cls=RecordedRunner,
-)

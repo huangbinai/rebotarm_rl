@@ -8,4 +8,4 @@ checkpoint="$1"
 output="$2"
 shift 2
 export MUJOCO_GL=egl
-exec python -m rebotarm_rl.evaluation.paired_eval --checkpoint "$checkpoint" --output "$output" --episodes 2 --steps 20 --seed 20000 "$@"
+exec python -m rebotarm_rl.evaluation.paired_eval --task RebotArm-Reach-Mjlab --checkpoint "$checkpoint" --output "$output" --episodes 2 --steps 20 --seed 20000 "$@"

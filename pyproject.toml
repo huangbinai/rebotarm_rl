@@ -25,7 +25,7 @@ where = ["src"]
 include = ["rebotarm_rl*"]
 
 [tool.setuptools.package-data]
-"rebotarm_rl.assets" = ["model_manifest.json"]
+"rebotarm_rl.assets" = ["model_manifest.json", "rebotarm/*.xml", "rebotarm/assets/*.STL", "rebotarm/assets/*.stl", "rebotarm/assets/gemini2/*.STL", "rebotarm/assets/gemini2/*.stl"]
 
 [project.optional-dependencies]
 test = ["pytest>=8"]

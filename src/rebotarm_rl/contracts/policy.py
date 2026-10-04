@@ -1,5 +1,5 @@
 """带版本的Reach策略契约；不导入仿真引擎。"""
-from dataclasses import asdict, dataclass, replace
+from dataclasses import asdict, dataclass
 from .robot import ARM_JOINTS
 
 
@@ -15,7 +15,7 @@ class PolicyContract:
     )
     # 关节选择器将观测限制为机械臂的六个关节。
     observation_sizes: tuple[int, ...] = (6, 6, 3, 3)
-    orientation_encoding: str = "legacy-reach-v1"
+    orientation_encoding: str = "world-current-minus-target-rotvec-wxyz"
     physics_dt_s: float = 0.002
     decimation: int = 10
     success_position_m: float = 0.01
@@ -37,15 +37,8 @@ class PolicyContract:
 REACH_V1 = PolicyContract()
 
 
-REACH_V2 = replace(
-    REACH_V1, version="reach-effort-v2", task_id="RebotArm-Reach-Mjlab-V2",
-    orientation_encoding="world-current-minus-target-rotvec-wxyz",
-)
-
-
 def contract_for_task(task_id: str) -> PolicyContract:
     """根据任务名取契约，不用张量维度猜测策略版本。"""
-    for contract in (REACH_V1, REACH_V2):
-        if contract.task_id == task_id:
-            return contract
+    if REACH_V1.task_id == task_id:
+        return REACH_V1
     raise ValueError(f"未知任务: {task_id}")
