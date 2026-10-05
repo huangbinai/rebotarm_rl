@@ -1,6 +1,8 @@
 """在创建训练器之前校验最终配置，并识别对应的策略契约。"""
 from rebotarm_rl.contracts.policy import REACH_V1, PolicyContract
 from .tasks.reach.observations import orientation_error
+from .tasks.reach.actions import HeldRelativePositionActionCfg
+from mjlab.envs.mdp import last_action
 
 
 def validate_config(cfg) -> PolicyContract:
@@ -16,6 +18,9 @@ def validate_config(cfg) -> PolicyContract:
             or cfg.decimation != c.decimation
             or action.scale != c.action_scale
             or tuple(action.actuator_names) != ("joint[1-6]",)
-            or action.__class__.__name__ != "RelativeJointPositionActionCfg"):
+            or type(action) is not HeldRelativePositionActionCfg
+            or action.offset != 0.0
+            or action.clip != {"joint[1-6]": (-c.action_scale, c.action_scale)}
+            or cfg.observations['actor'].terms['last_action'].func is not last_action):
         raise ValueError("生效的环境配置违反策略契约")
     return c

@@ -5,7 +5,9 @@ from .robot import ARM_JOINTS
 
 @dataclass(frozen=True)
 class PolicyContract:
-    version: str = "reach-position-v1"
+    version: str = "reach-position-v1.1"
+    target_update: str = "sample_current_at_control_step_hold_substeps"
+    last_action_encoding: str = "unscaled_action_after_optional_runner_clip"
     task_id: str = "RebotArm-Reach-Mjlab"
     joints: tuple[str, ...] = ARM_JOINTS
     action_type: str = "joint_position_delta"

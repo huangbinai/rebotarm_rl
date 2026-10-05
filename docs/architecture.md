@@ -36,4 +36,4 @@ Isaac Lab尚未实现，未来与mjlab使用独立运行环境，不互相导入
 仅为已公开的 python -m rebotarm_rl.resources 和
 python -m rebotarm_rl.evaluation.paired_eval 保留薄命令入口。
 旧 tasks/agents Python 内部导入路径不保留兼容层。
-任务语义不随目录迁移改变。改变动作或观测必须升级契约并明确checkpoint兼容性；当前`reach-effort-v1`已停止作为正式任务，正式任务为`reach-position-v1`。
+任务语义不随目录迁移改变。改变动作或观测必须升级契约并明确checkpoint兼容性；当前`reach-effort-v1`已停止作为正式任务，正式任务为`reach-position-v1.1`。

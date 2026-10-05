@@ -19,7 +19,7 @@ def position_error(env: ManagerBasedRlEnv) -> torch.Tensor:
 
 def position_fine(env: ManagerBasedRlEnv) -> torch.Tensor:
     pos, _ = _errors(env)
-    return torch.tanh(pos / 0.10)
+    return 1.0 - torch.tanh(pos / 0.10)
 
 
 def orientation_error(env: ManagerBasedRlEnv) -> torch.Tensor:

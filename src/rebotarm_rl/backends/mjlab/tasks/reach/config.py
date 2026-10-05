@@ -2,7 +2,7 @@
 from rebotarm_rl.contracts.policy import REACH_V1
 from mjlab.envs import ManagerBasedRlEnvCfg
 from mjlab.envs.mdp import joint_pos_rel, joint_vel_rel, last_action, time_out
-from mjlab.envs.mdp.actions import RelativeJointPositionActionCfg
+from .actions import HeldRelativePositionActionCfg
 from mjlab.managers.action_manager import ActionTermCfg
 from mjlab.managers.observation_manager import ObservationGroupCfg, ObservationTermCfg
 from mjlab.managers.reward_manager import RewardTermCfg
@@ -30,7 +30,7 @@ def make_env_cfg(*, play: bool = False, num_envs: int = 256) -> ManagerBasedRlEn
         ),
     }
     actions: dict[str, ActionTermCfg] = {
-        "joint_position": RelativeJointPositionActionCfg(
+        "joint_position": HeldRelativePositionActionCfg(
             entity_name="robot",
             actuator_names=("joint[1-6]",),
             scale=REACH_V1.action_scale,

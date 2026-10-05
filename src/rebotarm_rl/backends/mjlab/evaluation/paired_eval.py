@@ -86,8 +86,10 @@ def main():
         rng = np.random.default_rng(args.seed)
         rows = []
         max_initial_obs_delta = 0.0
+        max_observation_delta = 0.0
         for episode in range(args.episodes):
             env.reset()
+            mujoco.mj_resetData(model, data)
             data.qpos[qadr] = robot.data.joint_pos[0].cpu().numpy()
             data.qvel[vadr] = robot.data.joint_vel[0].cpu().numpy()
             initial_qpos = data.qpos[qadr].copy()
@@ -117,8 +119,9 @@ def main():
                                           data.qvel[vadr[:6]], cpos - target, corient])
                 cpu_obs = np.concatenate([cpu_obs, cpu_last_action])
                 gpu_obs = base.observation_manager.compute_group('actor')
+                delta = float(np.max(np.abs(cpu_obs - gpu_obs[0].cpu().numpy())))
+                max_observation_delta = max(max_observation_delta, delta)
                 if step == 0:
-                    delta = float(np.max(np.abs(cpu_obs - gpu_obs[0].cpu().numpy())))
                     max_initial_obs_delta = max(max_initial_obs_delta, delta)
                     if delta > 1e-4:
                         raise ValueError(f'CPU/GPU initial observation mismatch: {delta}')
@@ -126,8 +129,9 @@ def main():
                     ca = policy(TensorDict({'actor': torch.tensor(cpu_obs[None], dtype=torch.float32,
                                                                  device='cuda:0')}, batch_size=[1]))
                     ga = policy(TensorDict({'actor': gpu_obs}, batch_size=[1]))
-                # V1 actions are normalized relative joint-position deltas.
-                # Apply the same scale and bound as RelativeJointPositionAction.
+                if rl_cfg.clip_actions is not None:
+                    ca = ca.clamp(-rl_cfg.clip_actions, rl_cfg.clip_actions)
+                # Both backends sample the target once per control step and hold it.
                 processed_cpu_action = (ca[0] * contract.action_scale).clamp(
                     -contract.action_scale, contract.action_scale
                 )
@@ -136,7 +140,7 @@ def main():
                     torch.as_tensor(data.qpos[qadr[:6]], device='cuda:0')
                     + processed_cpu_action
                 ).cpu().numpy()
-                cpu_last_action = processed_cpu_action.cpu().numpy()
+                cpu_last_action = ca[0].cpu().numpy()
                 for _ in range(cfg.decimation):
                     mujoco.mj_step(model, data)
                 env.step(ga)
@@ -183,6 +187,7 @@ def main():
                   'seed': args.seed, 'episodes': args.episodes, 'steps': args.steps,
                   'control_dt_s': cfg.decimation * model.opt.timestep,
                   'integrator': int(model.opt.integrator), 'max_initial_obs_delta': max_initial_obs_delta,
+                  'max_observation_delta': max_observation_delta,
                   'scope': 'Deterministic CPU/GPU paired evaluation; alone does not establish convergence, generalization or hardware acceptance',
                   'summary': summary, 'results': rows}
         args.output.parent.mkdir(parents=True, exist_ok=True)
