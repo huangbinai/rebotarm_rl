@@ -1,4 +1,4 @@
-# Reach V1 基线。网络、PPO、奖励与任务语义使用原生配置。
+# Reach V1 位置伺服基线。网络和 PPO 使用原生配置。
 task = "RebotArm-Reach-Mjlab"
 run_kind = "train"
 seed = 7

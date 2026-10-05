@@ -6,4 +6,4 @@ from .commands import ReachCommand
 def success(env: ManagerBasedRlEnv) -> torch.Tensor:
     command = env.command_manager.get_term("reach")
     assert isinstance(command, ReachCommand)
-    return command.metrics["success"] > 0.5
+    return command.success_mask()

@@ -6,11 +6,11 @@ from rebotarm_rl.contracts.artifacts import write_run_record
 
 
 def test_shape_and_serialized_compatibility():
-    REACH_V1.validate_shapes(18, 6)
+    REACH_V1.validate_shapes(24, 6)
     REACH_V1.require_compatible(json.loads(json.dumps(REACH_V1.to_dict())))
     with pytest.raises(ValueError):
-        REACH_V1.validate_shapes(22, 6)
-    incompatible = REACH_V1.to_dict() | {"action_type": "joint_position"}
+        REACH_V1.validate_shapes(18, 6)
+    incompatible = REACH_V1.to_dict() | {"action_type": "joint_effort"}
     with pytest.raises(ValueError):
         REACH_V1.require_compatible(incompatible)
 

@@ -51,7 +51,7 @@ unset PYTHONPATH AMENT_PREFIX_PATH COLCON_PREFIX_PATH
 不按行数拆分；不建立万能utils，不捕获所有异常后继续训练。
 配置归后端原生配置系统；命名实验记录覆盖，不复制任务实现。
 位置误差方向是current-target，不得仅按字段名字推断。
-V1采用标准相对旋转向量，详见policy_contract.md。
+V1采用位置伺服动作和标准相对旋转向量，详见policy_contract.md。
 
 ## 实验记录
 

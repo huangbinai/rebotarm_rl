@@ -100,6 +100,7 @@ def main():
             command.target_quat[:] = torch.as_tensor(target_quat, device='cuda:0', dtype=torch.float32)
             results = {'cpu': [], 'gpu': []}
             q_deltas = []
+            cpu_last_action = np.zeros(6, dtype=np.float32)
             for step in range(args.steps + 1):
                 cpos, cquat = pose(model, data, site)
                 gpose = robot.data.site_pose_w[0, command.site_id].cpu().numpy()
@@ -114,6 +115,7 @@ def main():
                                                torch.from_numpy(target_quat)).numpy()
                 cpu_obs = np.concatenate([data.qpos[qadr[:6]] - default_q[:6],
                                           data.qvel[vadr[:6]], cpos - target, corient])
+                cpu_obs = np.concatenate([cpu_obs, cpu_last_action])
                 gpu_obs = base.observation_manager.compute_group('actor')
                 if step == 0:
                     delta = float(np.max(np.abs(cpu_obs - gpu_obs[0].cpu().numpy())))
@@ -124,10 +126,17 @@ def main():
                     ca = policy(TensorDict({'actor': torch.tensor(cpu_obs[None], dtype=torch.float32,
                                                                  device='cuda:0')}, batch_size=[1]))
                     ga = policy(TensorDict({'actor': gpu_obs}, batch_size=[1]))
-                if rl_cfg.clip_actions is not None:
-                    ca = ca.clamp(-rl_cfg.clip_actions, rl_cfg.clip_actions)
+                # V1 actions are normalized relative joint-position deltas.
+                # Apply the same scale and bound as RelativeJointPositionAction.
+                processed_cpu_action = (ca[0] * contract.action_scale).clamp(
+                    -contract.action_scale, contract.action_scale
+                )
                 data.ctrl[:] = 0
-                data.ctrl[actuator_ids] = ca[0].cpu().numpy()
+                data.ctrl[actuator_ids] = (
+                    torch.as_tensor(data.qpos[qadr[:6]], device='cuda:0')
+                    + processed_cpu_action
+                ).cpu().numpy()
+                cpu_last_action = processed_cpu_action.cpu().numpy()
                 for _ in range(cfg.decimation):
                     mujoco.mj_step(model, data)
                 env.step(ga)

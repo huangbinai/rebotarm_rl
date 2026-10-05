@@ -5,16 +5,16 @@ from .robot import ARM_JOINTS
 
 @dataclass(frozen=True)
 class PolicyContract:
-    version: str = "reach-effort-v1"
+    version: str = "reach-position-v1"
     task_id: str = "RebotArm-Reach-Mjlab"
     joints: tuple[str, ...] = ARM_JOINTS
-    action_type: str = "joint_effort"
-    action_scale: float = 1.0
+    action_type: str = "joint_position_delta"
+    action_scale: float = 0.25
     observation_fields: tuple[str, ...] = (
-        "joint_pos", "joint_vel", "position_error", "orientation_error"
+        "joint_pos", "joint_vel", "position_error", "orientation_error", "last_action"
     )
     # 关节选择器将观测限制为机械臂的六个关节。
-    observation_sizes: tuple[int, ...] = (6, 6, 3, 3)
+    observation_sizes: tuple[int, ...] = (6, 6, 3, 3, 6)
     orientation_encoding: str = "world-current-minus-target-rotvec-wxyz"
     physics_dt_s: float = 0.002
     decimation: int = 10

@@ -58,5 +58,14 @@ class ReachCommand(CommandTerm):
         self.metrics["orientation_error"] = orientation_error
         self.metrics["success"] = success.float()
 
+    def success_mask(self) -> torch.Tensor:
+        """Compute success from the current pose, without relying on cached metrics."""
+        current = self.robot.data.site_pose_w[:, self.site_id]
+        position_error = torch.linalg.vector_norm(current[:, :3] - self.target_pos, dim=-1)
+        orientation_error = quat_error_magnitude(current[:, 3:7], self.target_quat)
+        return (position_error < REACH_V1.success_position_m) & (
+            orientation_error < REACH_V1.success_orientation_rad
+        )
+
     def _update_command(self, env_ids: torch.Tensor | None) -> None:
         del env_ids

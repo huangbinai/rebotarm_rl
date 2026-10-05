@@ -1,6 +1,6 @@
 # rebotarm_rl
 
-reBotArm强化学习项目，使用mjlab + MuJoCo Warp + RSL-RL训练机械臂Reach任务，并提供CPU/GPU配对评估。当前策略输出六关节力矩。
+reBotArm强化学习项目，使用mjlab + MuJoCo Warp + RSL-RL训练机械臂Reach任务，并提供CPU/GPU配对评估。当前策略输出六关节相对位置增量，由位置伺服器执行。
 
 ## 安装
 

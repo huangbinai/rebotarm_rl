@@ -5,7 +5,23 @@ from mjlab.managers.scene_entity_config import SceneEntityCfg
 from rebotarm_rl.assets.resources import reach_scene_path
 
 def _get_spec():
-    return mujoco.MjSpec.from_file(str(reach_scene_path()))
+    spec = mujoco.MjSpec.from_file(str(reach_scene_path()))
+    # The source XML contains the real robot's effort limits.  Convert only the
+    # six arm actuators in the compiled training spec to bounded position servos;
+    # the packaged source model remains unchanged and hash-verifiable.
+    gains = {
+        "joint1_torque": (100.0, 10.0),
+        "joint2_torque": (100.0, 10.0),
+        "joint3_torque": (100.0, 10.0),
+        "joint4_torque": (40.0, 4.0),
+        "joint5_torque": (40.0, 4.0),
+        "joint6_torque": (40.0, 4.0),
+    }
+    for actuator in spec.actuators:
+        if actuator.name in gains:
+            kp, kv = gains[actuator.name]
+            actuator.set_to_position(kp, kv, inheritrange=False)
+    return spec
 
 ROBOT_CFG = EntityCfg(
     spec_fn=_get_spec,

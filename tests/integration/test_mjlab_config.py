@@ -10,7 +10,7 @@ def test_task_contract_matches_effective_config():
     cfg = make_env_cfg()
     assert validate_config(cfg) == REACH_V1
     assert cfg.observations['actor'].terms['orientation_error'].func is orientation_error
-    cfg.actions['joint_effort'].scale = 2.0
+    cfg.actions['joint_position'].scale = 2.0
     with pytest.raises(ValueError):
         validate_config(cfg)
     cfg = make_env_cfg()

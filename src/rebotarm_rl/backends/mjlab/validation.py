@@ -10,11 +10,12 @@ def validate_config(cfg) -> PolicyContract:
         c = REACH_V1
     else:
         raise ValueError("未注册的姿态编码，不能推断策略契约")
-    action = cfg.actions["joint_effort"]
+    action = cfg.actions["joint_position"]
     if (tuple(cfg.observations["actor"].terms) != c.observation_fields
             or cfg.sim.mujoco.timestep != c.physics_dt_s
             or cfg.decimation != c.decimation
             or action.scale != c.action_scale
-            or tuple(action.actuator_names) != ("joint[1-6]",)):
+            or tuple(action.actuator_names) != ("joint[1-6]",)
+            or action.__class__.__name__ != "RelativeJointPositionActionCfg"):
         raise ValueError("生效的环境配置违反策略契约")
     return c
