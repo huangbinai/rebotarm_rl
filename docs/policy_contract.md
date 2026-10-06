@@ -1,5 +1,28 @@
 # Reach策略接口与版本
 
+## 独立官方配方对齐实验
+
+`RebotArm-Reach-OfficialAligned-Mjlab` / `reach-position-official-aligned-v2`
+保留旧任务，权重不能互换。动作改为 `q_target = q_default + 0.5 * action`，
+无任务级动作裁剪，仍受编译模型执行器限制。保留24维误差观测及0.02秒控制周期。
+12秒回合，仅超时终止，每4秒刷新目标；固定默认姿态FK为采样中心，
+保留0至0.06米径向均匀采样及固定默认姿态，不复制Franka工作空间。
+这避免在reset尚未forward时读取旧TCP缓存，也避免刷新时目标中心跟随策略漂移。
+保留本机128环境、reBotArm模型/PD增益、无观测噪声与默认reset，
+不是官方Franka/PhysX的完整复现。
+
+奖励五项初始权重保持不变；超过4500控制步后，在回合重置时将动作率惩罚设为
+-0.005、关节速度惩罚设为-0.001（阶跃，不是线性渐变）。
+PPO采用64×64 ELU、初始标准差1.0、熵系数0.001、学习率0.001、8 epochs，
+其余采样24步、4 minibatches、gamma 0.99、lambda 0.95、KL 0.01。
+参考官方 `main` 的 reach_env_cfg.py、config/franka/joint_pos_env_cfg.py 及
+config/franka/agents/rsl_rl_ppo_cfg.py；核对日期2026-10-06。
+https://github.com/isaac-sim/IsaacLab/tree/main/source/isaaclab_tasks/isaaclab_tasks/manager_based/manipulation/reach
+
+启动：`python scripts/train.py --experiment reach_official_aligned`；
+短验证使用 `reach_official_aligned_smoke`。评估必须显式传入新任务名，
+使用固定目标250步测试（不刷新目标、不自动终止），区别于12秒训练任务。
+
 任务配置以`src/rebotarm_rl/backends/mjlab/tasks/reach/config.py`为准，契约定义在`contracts/policy.py`。
 
 ## 共同约定

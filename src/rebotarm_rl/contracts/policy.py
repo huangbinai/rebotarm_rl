@@ -37,10 +37,18 @@ class PolicyContract:
 
 
 REACH_V1 = PolicyContract()
+REACH_ALIGNED = PolicyContract(
+    version="reach-position-official-aligned-v2",
+    task_id="RebotArm-Reach-OfficialAligned-Mjlab",
+    action_type="joint_position_default_offset",
+    target_update="default_joint_position_plus_scaled_action_hold_substeps",
+    action_scale=0.5,
+)
 
 
 def contract_for_task(task_id: str) -> PolicyContract:
     """根据任务名取契约，不用张量维度猜测策略版本。"""
-    if REACH_V1.task_id == task_id:
-        return REACH_V1
+    for contract in (REACH_V1, REACH_ALIGNED):
+        if contract.task_id == task_id:
+            return contract
     raise ValueError(f"未知任务: {task_id}")

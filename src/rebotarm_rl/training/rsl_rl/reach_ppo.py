@@ -29,3 +29,16 @@ def runner_cfg() -> RslRlOnPolicyRunnerCfg:
         max_iterations=1000,
         save_interval=100,
     )
+
+
+def aligned_runner_cfg():
+    cfg = runner_cfg()
+    cfg.actor.hidden_dims = (64, 64)
+    cfg.critic.hidden_dims = (64, 64)
+    cfg.actor.distribution_cfg['init_std'] = 1.0
+    cfg.algorithm.entropy_coef = .001
+    cfg.algorithm.learning_rate = .001
+    cfg.algorithm.num_learning_epochs = 8
+    cfg.experiment_name = 'rebotarm_reach_official_aligned'
+    cfg.save_interval = 50
+    return cfg

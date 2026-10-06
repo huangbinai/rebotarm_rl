@@ -41,7 +41,7 @@ def main():
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--episodes', type=int, default=10)
     parser.add_argument('--steps', type=int, default=250)
-    parser.add_argument('--task', choices=['RebotArm-Reach-Mjlab'], default='RebotArm-Reach-Mjlab')
+    parser.add_argument('--task', choices=['RebotArm-Reach-Mjlab', 'RebotArm-Reach-OfficialAligned-Mjlab'], default='RebotArm-Reach-Mjlab')
     parser.add_argument('--seed', type=int, default=20000)
     parser.add_argument('--save-trajectories', action='store_true',
                         help='保留逐步误差轨迹，正式评估或诊断时使用')
@@ -89,6 +89,7 @@ def main():
         max_observation_delta = 0.0
         for episode in range(args.episodes):
             env.reset()
+            # Clear CPU solver/control history; then copy the complete GPU joint state.
             mujoco.mj_resetData(model, data)
             data.qpos[qadr] = robot.data.joint_pos[0].cpu().numpy()
             data.qvel[vadr] = robot.data.joint_vel[0].cpu().numpy()
@@ -102,6 +103,7 @@ def main():
             command.target_quat[:] = torch.as_tensor(target_quat, device='cuda:0', dtype=torch.float32)
             results = {'cpu': [], 'gpu': []}
             q_deltas = []
+            movements = []
             cpu_last_action = np.zeros(6, dtype=np.float32)
             for step in range(args.steps + 1):
                 cpos, cquat = pose(model, data, site)
@@ -110,6 +112,7 @@ def main():
                     pe, oe = errors(p, q, target, target_quat)
                     results[backend].append([pe, oe, bool(pe < contract.success_position_m and oe < contract.success_orientation_rad)])
                 q_deltas.append(float(np.max(np.abs(data.qpos[qadr] - robot.data.joint_pos[0].cpu().numpy()))))
+                movements.append(float(np.max(np.abs(robot.data.joint_pos[0].cpu().numpy()[:6] - initial_qpos[:6]))))
                 if step == args.steps:
                     break
                 from rebotarm_rl.backends.mjlab.rotation import rotation_error_wxyz
@@ -132,12 +135,15 @@ def main():
                 if rl_cfg.clip_actions is not None:
                     ca = ca.clamp(-rl_cfg.clip_actions, rl_cfg.clip_actions)
                 # Both backends sample the target once per control step and hold it.
-                processed_cpu_action = (ca[0] * contract.action_scale).clamp(
-                    -contract.action_scale, contract.action_scale
-                )
+                processed_cpu_action = ca[0] * contract.action_scale
+                if contract.action_type == 'joint_position_delta':
+                    processed_cpu_action = processed_cpu_action.clamp(-contract.action_scale, contract.action_scale)
+                    reference_q = data.qpos[qadr[:6]]
+                else:
+                    reference_q = default_q[:6]
                 data.ctrl[:] = 0
                 data.ctrl[actuator_ids] = (
-                    torch.as_tensor(data.qpos[qadr[:6]], device='cuda:0')
+                    torch.as_tensor(reference_q, device='cuda:0')
                     + processed_cpu_action
                 ).cpu().numpy()
                 cpu_last_action = ca[0].cpu().numpy()
@@ -150,7 +156,8 @@ def main():
                    'target_quaternion_wxyz': target_quat.tolist(),
                    'initial_joint_position_rad': initial_qpos.tolist(),
                    'initial_joint_velocity_rad_s': initial_qvel.tolist(),
-                   'max_joint_trajectory_delta_rad': max(q_deltas)}
+                   'max_joint_trajectory_delta_rad': max(q_deltas),
+                   'max_joint_displacement_from_initial_rad': max(movements)}
             for backend in results:
                 trajectory = results[backend]
                 row[backend] = {'final_position_error_m': trajectory[-1][0],
