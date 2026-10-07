@@ -35,6 +35,27 @@ def errors(pos, quat, target, target_quat):
     return float(np.linalg.norm(pos - target)), float(2 * np.arccos(cosine))
 
 
+def success_summary(flags: list[bool], hold_steps: int) -> dict[str, object]:
+    """Summarize first-hit, continuous-hold, and end-of-rollout success."""
+    if not flags:
+        raise ValueError("success trajectory must not be empty")
+    longest = 0
+    current = 0
+    for flag in flags:
+        current = current + 1 if flag else 0
+        longest = max(longest, current)
+    tail_success = len(flags) >= hold_steps and all(flags[-hold_steps:])
+    hold_success = longest >= hold_steps
+    return {
+        "initial_success": bool(flags[0]),
+        "final_success": bool(flags[-1]),
+        "first_success_step": next((i for i, flag in enumerate(flags) if flag), None),
+        "longest_success_hold_steps": longest,
+        "hold_success": hold_success,
+        "tail_success": tail_success,
+    }
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--checkpoint', type=Path, required=True)
@@ -46,9 +67,19 @@ def main():
     parser.add_argument('--save-trajectories', action='store_true',
                         help='保留逐步误差轨迹，正式评估或诊断时使用')
     parser.add_argument('--selection-reason', help='选定此权重的依据；省略表示仅评估')
+    parser.add_argument('--hold-steps', type=int, default=25,
+                        help='连续成功控制步数；25步对应0.5秒')
+    parser.add_argument('--exclude-initial-success', action='store_true',
+                        help='重采样目标直到初始状态不满足成功阈值')
+    parser.add_argument('--target-min-radius', type=float, default=0.0)
+    parser.add_argument('--target-max-radius', type=float, default=0.06)
     args = parser.parse_args()
-    if args.episodes < 1 or args.steps < 1:
-        parser.error('episodes and steps must be positive')
+    if args.episodes < 1 or args.steps < 1 or args.hold_steps < 1:
+        parser.error('episodes, steps, and hold-steps must be positive')
+    if not 0.0 <= args.target_min_radius <= args.target_max_radius:
+        parser.error('target radius range is invalid')
+    if args.hold_steps > args.steps + 1:
+        parser.error('hold-steps must not exceed the recorded trajectory length')
     checkpoint = args.checkpoint.resolve(strict=True)
     task = args.task
     from rebotarm_rl.contracts.policy import contract_for_task
@@ -96,8 +127,22 @@ def main():
             initial_qpos = data.qpos[qadr].copy()
             initial_qvel = data.qvel[vadr].copy()
             home_pos, home_quat = pose(model, data, site)
-            direction = rng.normal(size=3)
-            target = home_pos + direction / np.linalg.norm(direction) * rng.uniform(0, .06)
+            for _ in range(1000):
+                direction = rng.normal(size=3)
+                target = home_pos + direction / np.linalg.norm(direction) * rng.uniform(
+                    args.target_min_radius, args.target_max_radius
+                )
+                initial_position_error, initial_orientation_error = errors(
+                    home_pos, home_quat, target, home_quat
+                )
+                initial_success = (
+                    initial_position_error < contract.success_position_m
+                    and initial_orientation_error < contract.success_orientation_rad
+                )
+                if not args.exclude_initial_success or not initial_success:
+                    break
+            else:
+                raise RuntimeError('could not sample a non-success initial target')
             target_quat = home_quat.copy()
             command.target_pos[:] = torch.as_tensor(target, device='cuda:0', dtype=torch.float32)
             command.target_quat[:] = torch.as_tensor(target_quat, device='cuda:0', dtype=torch.float32)
@@ -160,19 +205,27 @@ def main():
                    'max_joint_displacement_from_initial_rad': max(movements)}
             for backend in results:
                 trajectory = results[backend]
-                row[backend] = {'final_position_error_m': trajectory[-1][0],
-                                'final_orientation_error_rad': trajectory[-1][1],
-                                'final_success': trajectory[-1][2],
-                                'first_success_step': next((i for i, v in enumerate(trajectory) if v[2]), None)}
+                row[backend] = {
+                    'final_position_error_m': trajectory[-1][0],
+                    'final_orientation_error_rad': trajectory[-1][1],
+                    **success_summary([v[2] for v in trajectory], args.hold_steps),
+                }
                 if args.save_trajectories:
                     row[backend]['error_trajectory'] = trajectory
             rows.append(row)
         summary = {}
         for backend in ('cpu', 'gpu'):
+            backend_rows = rows
+            if args.exclude_initial_success:
+                backend_rows = [r for r in rows if not r[backend]['initial_success']]
             summary[backend] = {
-                'final_success_count': sum(r[backend]['final_success'] for r in rows),
-                'mean_final_position_error_m': float(np.mean([r[backend]['final_position_error_m'] for r in rows])),
-                'mean_final_orientation_error_rad': float(np.mean([r[backend]['final_orientation_error_rad'] for r in rows]))}
+                'episodes_evaluated': len(backend_rows),
+                'final_success_count': sum(r[backend]['final_success'] for r in backend_rows),
+                'hold_success_count': sum(r[backend]['hold_success'] for r in backend_rows),
+                'tail_success_count': sum(r[backend]['tail_success'] for r in backend_rows),
+                'mean_final_position_error_m': float(np.mean([r[backend]['final_position_error_m'] for r in backend_rows])),
+                'mean_final_orientation_error_rad': float(np.mean([r[backend]['final_orientation_error_rad'] for r in backend_rows])),
+            }
         conditions = {
             'backends': ['cpu_mujoco', 'gpu_warp'], 'device': 'cuda:0',
             'deterministic_policy': True, 'clip_actions': rl_cfg.clip_actions,
@@ -180,7 +233,9 @@ def main():
             'automatic_termination': False,
             'target_position': {'center': 'initial TCP world position',
                                 'direction': 'normalized NumPy standard normal vector',
-                                'radius_uniform_m': [0.0, 0.06]},
+                                'radius_uniform_m': [args.target_min_radius, args.target_max_radius]},
+            'exclude_initial_success': args.exclude_initial_success,
+            'hold_steps': args.hold_steps,
             'target_orientation': 'initial TCP world orientation',
             'initial_state': 'environment reset; CPU copies GPU joint position and velocity',
             'success_position_m': contract.success_position_m,
