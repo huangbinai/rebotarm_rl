@@ -25,7 +25,12 @@ class PolicyContract:
     orientation_reward_weight: float = -0.1
 
     def to_dict(self) -> dict:
-        return asdict(self)
+        result = asdict(self)
+        # Published V1.1/V2 checkpoints predate the reward-specific experiment.
+        # Keep their exact serialized contract; new versions carry the weight.
+        if self.version in ("reach-position-v1.1", "reach-position-official-aligned-v2"):
+            result.pop("orientation_reward_weight")
+        return result
 
     def validate_shapes(self, observation_size: int, action_size: int) -> None:
         if observation_size != sum(self.observation_sizes) or action_size != len(self.joints):

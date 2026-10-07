@@ -60,3 +60,12 @@ def test_formal_requires_clean_commit(tmp_path, monkeypatch):
     monkeypatch.setenv('REBOTARM_RL_RUN_KIND', 'smoke')
     write_run_record(run, repository=tmp_path, runtime={'seed': 42})
     assert not (run / 'git').exists()
+
+
+def test_published_contract_schema_preserved():
+    from rebotarm_rl.contracts.policy import REACH_ALIGNED, REACH_ORIENTATION_ALIGNED
+    for contract in (REACH_V1, REACH_ALIGNED):
+        assert 'orientation_reward_weight' not in contract.to_dict()
+    assert REACH_ORIENTATION_ALIGNED.to_dict()['orientation_reward_weight'] == -.2
+    with pytest.raises(ValueError):
+        REACH_ORIENTATION_ALIGNED.require_compatible(REACH_ALIGNED.to_dict())
