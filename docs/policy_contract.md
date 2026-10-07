@@ -67,3 +67,17 @@ CPU/GPU比较使用mjlab编译模型，不代表与ROS位置控制仿真或实�
 精细位置奖励为 `1 - tanh(distance / 0.10)`，权重0.1；叠加权重-0.2的位置误差后，奖励随距离严格下降。旧位置V1奖励方向错误，且每个物理子步更新相对目标，不能作为本版本训练或评估依据。旧力矩V1及位置V1权重均被拒绝，必须从头训练。
 
 此版本仍使用原有成功终止、5秒上限和PD增益；增量裁剪不是实际关节速度硬限幅，也未新增连续保持验收或硬件伺服标定。
+
+## 重力补偿单变量实验
+
+任务 `RebotArm-Reach-GravityComp-Mjlab`，契约 `reach-position-gravity-compensated-v3`。
+以官方对齐版为基线，姿态奖励仍为-0.1，动作/PPO/目标采样不变。
+仅编译模型增加原生body gravcomp（包括固定相机负载），六个机械臂关节
+使用actuatorgravcomp，将补偿计入总关节驱动力，并在合并PD力矩后限制为
+前三轴±27Nm、后三轴±7Nm。重力仍启用，XML资源和哈希不变。
+这是仿真模型计算的理想重力前馈，不是已经标定的实机电机位置模式。
+新旧任务权重不兼容，所有历史任务保持原有动力学及契约。
+
+启动：`python scripts/train.py --experiment reach_gravity_aligned`，短验证
+用`reach_gravity_aligned_smoke`。严格评估需新任务名，仍使用2–6cm目标、
+100回合、250步、seed20000及连续25样本指标以便对照。

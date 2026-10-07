@@ -1,5 +1,5 @@
 """带版本的Reach策略契约；不导入仿真引擎。"""
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from .robot import ARM_JOINTS
 
 
@@ -60,9 +60,16 @@ REACH_ORIENTATION_ALIGNED = PolicyContract(
 )
 
 
+REACH_GRAVITY = replace(
+    REACH_ALIGNED,
+    version="reach-position-gravity-compensated-v3",
+    task_id="RebotArm-Reach-GravityComp-Mjlab",
+)
+
+
 def contract_for_task(task_id: str) -> PolicyContract:
     """根据任务名取契约，不用张量维度猜测策略版本。"""
-    for contract in (REACH_V1, REACH_ALIGNED, REACH_ORIENTATION_ALIGNED):
+    for contract in (REACH_V1, REACH_ALIGNED, REACH_ORIENTATION_ALIGNED, REACH_GRAVITY):
         if contract.task_id == task_id:
             return contract
     raise ValueError(f"未知任务: {task_id}")

@@ -45,3 +45,21 @@ ROBOT_CFG = EntityCfg(
 )
 
 ROBOT = SceneEntityCfg("robot", joint_names=("joint[1-6]",))
+
+
+def gravity_compensated_spec():
+    """Model gravity feedforward, routed through bounded arm joint actuation.
+
+    Gravity remains enabled. Include the fixed camera/gripper payload masses.
+    Joint actuation limits bound the combined PD and gravity contribution.
+    """
+    spec = _get_spec()
+    for body in spec.bodies:
+        if body.name != 'world':
+            body.gravcomp = 1.0
+    for i, limit in enumerate((27., 27., 27., 7., 7., 7.), start=1):
+        joint = spec.joint(f'joint{i}')
+        joint.actgravcomp = True
+        joint.actfrclimited = mujoco.mjtLimited.mjLIMITED_TRUE
+        joint.actfrcrange = [-limit, limit]
+    return spec

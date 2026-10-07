@@ -61,3 +61,12 @@ def make_aligned_env_cfg(*, play=False, num_envs=128, contract: PolicyContract =
 def make_orientation_aligned_env_cfg(*, play=False, num_envs=128):
     from rebotarm_rl.contracts.policy import REACH_ORIENTATION_ALIGNED
     return make_aligned_env_cfg(play=play, num_envs=num_envs, contract=REACH_ORIENTATION_ALIGNED)
+
+
+def make_gravity_aligned_env_cfg(*, play=False, num_envs=128):
+    from copy import deepcopy
+    from rebotarm_rl.backends.mjlab.robots.rebotarm import gravity_compensated_spec
+    cfg = make_aligned_env_cfg(play=play, num_envs=num_envs)
+    cfg.scene.entities['robot'] = deepcopy(cfg.scene.entities['robot'])
+    cfg.scene.entities['robot'].spec_fn = gravity_compensated_spec
+    return cfg
