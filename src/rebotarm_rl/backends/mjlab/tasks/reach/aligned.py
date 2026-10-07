@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from mjlab.envs.mdp.actions.actions import JointPositionActionCfg
 from mjlab.envs.mdp.curriculums import reward_curriculum
 from mjlab.managers import CurriculumTermCfg
-from rebotarm_rl.contracts.policy import REACH_ALIGNED
+from rebotarm_rl.contracts.policy import REACH_ALIGNED, PolicyContract
 from .commands import ReachCommand, ReachCommandCfg
 from .config import make_env_cfg
 
@@ -40,13 +40,14 @@ class AnchoredReachCommand(ReachCommand):
         self.target_quat[env_ids] = self.anchor_quat
 
 
-def make_aligned_env_cfg(*, play=False, num_envs=128):
+def make_aligned_env_cfg(*, play=False, num_envs=128, contract: PolicyContract = REACH_ALIGNED):
     cfg = make_env_cfg(play=play, num_envs=num_envs)
     cfg.actions['joint_position'] = JointPositionActionCfg(
         entity_name='robot', actuator_names=('joint[1-6]',),
         scale=REACH_ALIGNED.action_scale, use_default_offset=True,
     )
     cfg.commands['reach'] = AnchoredReachCommandCfg(resampling_time_range=(4., 4.))
+    cfg.rewards['orientation'].weight = contract.orientation_reward_weight
     cfg.terminations.pop('success')
     cfg.episode_length_s = 12.
     cfg.curriculum = {
@@ -55,3 +56,8 @@ def make_aligned_env_cfg(*, play=False, num_envs=128):
         for name, weight in [('action_rate', -.005), ('joint_velocity', -.001)]
     }
     return cfg
+
+
+def make_orientation_aligned_env_cfg(*, play=False, num_envs=128):
+    from rebotarm_rl.contracts.policy import REACH_ORIENTATION_ALIGNED
+    return make_aligned_env_cfg(play=play, num_envs=num_envs, contract=REACH_ORIENTATION_ALIGNED)

@@ -22,6 +22,7 @@ class PolicyContract:
     decimation: int = 10
     success_position_m: float = 0.01
     success_orientation_rad: float = 0.05236
+    orientation_reward_weight: float = -0.1
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -44,11 +45,19 @@ REACH_ALIGNED = PolicyContract(
     target_update="default_joint_position_plus_scaled_action_hold_substeps",
     action_scale=0.5,
 )
+REACH_ORIENTATION_ALIGNED = PolicyContract(
+    version="reach-position-official-aligned-v2-orientation-v1",
+    task_id="RebotArm-Reach-OfficialAligned-Orientation-Mjlab",
+    action_type="joint_position_default_offset",
+    target_update="default_joint_position_plus_scaled_action_hold_substeps",
+    action_scale=0.5,
+    orientation_reward_weight=-0.2,
+)
 
 
 def contract_for_task(task_id: str) -> PolicyContract:
     """根据任务名取契约，不用张量维度猜测策略版本。"""
-    for contract in (REACH_V1, REACH_ALIGNED):
+    for contract in (REACH_V1, REACH_ALIGNED, REACH_ORIENTATION_ALIGNED):
         if contract.task_id == task_id:
             return contract
     raise ValueError(f"未知任务: {task_id}")

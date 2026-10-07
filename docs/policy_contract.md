@@ -23,6 +23,14 @@ https://github.com/isaac-sim/IsaacLab/tree/main/source/isaaclab_tasks/isaaclab_t
 短验证使用 `reach_official_aligned_smoke`。评估必须显式传入新任务名，
 使用固定目标250步测试（不刷新目标、不自动终止），区别于12秒训练任务。
 
+## 姿态权重单变量实验
+
+`RebotArm-Reach-OfficialAligned-Orientation-Mjlab` /
+`reach-position-official-aligned-v2-orientation-v1`只将姿态误差奖励权重从
+`-0.1`改为`-0.2`，其他动作、PPO、目标、episode、curriculum和观测保持一致。
+它只与自身权重兼容，不能加载官方对齐版v2权重。正式实验：
+`python scripts/train.py --experiment reach_orientation_aligned`。
+
 任务配置以`src/rebotarm_rl/backends/mjlab/tasks/reach/config.py`为准，契约定义在`contracts/policy.py`。
 
 ## 共同约定

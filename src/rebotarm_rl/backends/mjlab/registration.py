@@ -4,9 +4,9 @@ from rebotarm_rl.backends.mjlab.tasks.reach.config import make_env_cfg
 from rebotarm_rl.training.rsl_rl.reach_ppo import runner_cfg
 
 from .runner import RecordedRunner
-from .tasks.reach.aligned import make_aligned_env_cfg
+from .tasks.reach.aligned import make_aligned_env_cfg, make_orientation_aligned_env_cfg
 from rebotarm_rl.training.rsl_rl.reach_ppo import aligned_runner_cfg
-from rebotarm_rl.contracts.policy import REACH_ALIGNED
+from rebotarm_rl.contracts.policy import REACH_ALIGNED, REACH_ORIENTATION_ALIGNED
 
 register_mjlab_task(
     task_id="RebotArm-Reach-Mjlab",
@@ -14,6 +14,13 @@ register_mjlab_task(
     play_env_cfg=make_env_cfg(play=True, num_envs=1),
     rl_cfg=runner_cfg(),
     runner_cls=RecordedRunner,
+)
+
+register_mjlab_task(
+    task_id=REACH_ORIENTATION_ALIGNED.task_id,
+    env_cfg=make_orientation_aligned_env_cfg(),
+    play_env_cfg=make_orientation_aligned_env_cfg(play=True, num_envs=1),
+    rl_cfg=aligned_runner_cfg(), runner_cls=RecordedRunner,
 )
 
 register_mjlab_task(

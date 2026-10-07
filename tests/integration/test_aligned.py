@@ -3,10 +3,10 @@ import pytest
 
 def test_aligned_recipe_and_contract():
     pytest.importorskip('mjlab')
-    from rebotarm_rl.backends.mjlab.tasks.reach.aligned import make_aligned_env_cfg
+    from rebotarm_rl.backends.mjlab.tasks.reach.aligned import make_aligned_env_cfg, make_orientation_aligned_env_cfg
     from rebotarm_rl.training.rsl_rl.reach_ppo import aligned_runner_cfg
     from rebotarm_rl.backends.mjlab.validation import validate_config
-    from rebotarm_rl.contracts.policy import REACH_ALIGNED, REACH_V1
+    from rebotarm_rl.contracts.policy import REACH_ALIGNED, REACH_ORIENTATION_ALIGNED, REACH_V1
     cfg = make_aligned_env_cfg()
     assert validate_config(cfg) == REACH_ALIGNED
     with pytest.raises(ValueError):
@@ -15,6 +15,9 @@ def test_aligned_recipe_and_contract():
     assert 'success' not in cfg.terminations
     assert cfg.episode_length_s == 12.
     assert cfg.curriculum['action_rate'].params['stages'][0]['weight'] == -.005
+    oriented = make_orientation_aligned_env_cfg()
+    assert validate_config(oriented) == REACH_ORIENTATION_ALIGNED
+    assert oriented.rewards['orientation'].weight == -.2
     agent = aligned_runner_cfg()
     assert agent.actor.hidden_dims == (64, 64)
     assert agent.actor.distribution_cfg['init_std'] == 1.
