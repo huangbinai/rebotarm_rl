@@ -4,7 +4,7 @@ from mjlab.envs.mdp.actions.actions import JointPositionActionCfg
 from .tasks.reach.observations import orientation_error
 from .tasks.reach.actions import HeldRelativePositionActionCfg
 from mjlab.envs.mdp import last_action
-from rebotarm_rl.contracts.policy import REACH_GRAVITY
+from rebotarm_rl.contracts.policy import REACH_GRAVITY, REACH_GRAVITY_FIXED
 from .robots.rebotarm import gravity_compensated_spec, _get_spec
 
 
@@ -24,10 +24,15 @@ def validate_config(cfg) -> PolicyContract:
     if gravity_compensated:
         if c != REACH_ALIGNED:
             raise ValueError('重力补偿任务必须沿用对齐版动作及-0.1姿态奖励')
-        c = REACH_GRAVITY
+        c = REACH_GRAVITY if cfg.curriculum else REACH_GRAVITY_FIXED
+        if c == REACH_GRAVITY_FIXED and any(
+            cfg.rewards[name].weight != -0.0001
+            for name in ("action_rate", "joint_velocity")
+        ):
+            raise ValueError("固定惩罚任务必须保持初始权重-0.0001")
     elif cfg.scene.entities['robot'].spec_fn is not _get_spec:
         raise ValueError('未注册的机器人伺服模型')
-    aligned = c in (REACH_ALIGNED, REACH_ORIENTATION_ALIGNED, REACH_GRAVITY)
+    aligned = c in (REACH_ALIGNED, REACH_ORIENTATION_ALIGNED, REACH_GRAVITY, REACH_GRAVITY_FIXED)
     if (tuple(cfg.observations["actor"].terms) != c.observation_fields
             or cfg.sim.mujoco.timestep != c.physics_dt_s
             or cfg.decimation != c.decimation

@@ -44,3 +44,26 @@ def test_gpu_gravity_hold_and_total_force_limit():
         assert torch.all(force.abs() <= limits+1e-4)
     finally:
         env.close()
+
+
+def test_fixed_penalties_only_remove_curriculum():
+    pytest.importorskip('mjlab')
+    from rebotarm_rl.backends.mjlab.tasks.reach.aligned import (
+        make_gravity_aligned_env_cfg, make_gravity_fixed_env_cfg,
+    )
+    from rebotarm_rl.backends.mjlab.validation import validate_config
+    from rebotarm_rl.contracts.policy import REACH_GRAVITY, REACH_GRAVITY_FIXED
+    baseline = make_gravity_aligned_env_cfg()
+    fixed = make_gravity_fixed_env_cfg()
+    assert baseline.curriculum
+    assert not fixed.curriculum
+    baseline.curriculum = {}
+    assert baseline == fixed
+    assert validate_config(fixed) == REACH_GRAVITY_FIXED
+    for source, target in [(REACH_GRAVITY, REACH_GRAVITY_FIXED),
+                           (REACH_GRAVITY_FIXED, REACH_GRAVITY)]:
+        with pytest.raises(ValueError):
+            target.require_compatible(source.to_dict())
+    fixed.rewards['action_rate'].weight = -0.005
+    with pytest.raises(ValueError, match='固定惩罚'):
+        validate_config(fixed)

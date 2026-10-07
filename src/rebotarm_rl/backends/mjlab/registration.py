@@ -39,3 +39,14 @@ register_mjlab_task(
     play_env_cfg=make_gravity_aligned_env_cfg(play=True, num_envs=1),
     rl_cfg=aligned_runner_cfg(), runner_cls=RecordedRunner,
 )
+
+
+from .tasks.reach.aligned import make_gravity_fixed_env_cfg
+from rebotarm_rl.contracts.policy import REACH_GRAVITY_FIXED
+
+register_mjlab_task(
+    task_id=REACH_GRAVITY_FIXED.task_id,
+    env_cfg=make_gravity_fixed_env_cfg(),
+    play_env_cfg=make_gravity_fixed_env_cfg(play=True, num_envs=1),
+    rl_cfg=aligned_runner_cfg(), runner_cls=RecordedRunner,
+)

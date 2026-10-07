@@ -62,7 +62,7 @@ def main():
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--episodes', type=int, default=10)
     parser.add_argument('--steps', type=int, default=250)
-    parser.add_argument('--task', choices=['RebotArm-Reach-Mjlab', 'RebotArm-Reach-OfficialAligned-Mjlab', 'RebotArm-Reach-OfficialAligned-Orientation-Mjlab', 'RebotArm-Reach-GravityComp-Mjlab'], default='RebotArm-Reach-Mjlab')
+    parser.add_argument('--task', choices=['RebotArm-Reach-Mjlab', 'RebotArm-Reach-OfficialAligned-Mjlab', 'RebotArm-Reach-OfficialAligned-Orientation-Mjlab', 'RebotArm-Reach-GravityComp-Mjlab', 'RebotArm-Reach-GravityComp-FixedPenalties-Mjlab'], default='RebotArm-Reach-Mjlab')
     parser.add_argument('--seed', type=int, default=20000)
     parser.add_argument('--save-trajectories', action='store_true',
                         help='保留逐步误差轨迹，正式评估或诊断时使用')

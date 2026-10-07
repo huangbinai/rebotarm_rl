@@ -81,3 +81,19 @@ CPU/GPU比较使用mjlab编译模型，不代表与ROS位置控制仿真或实�
 启动：`python scripts/train.py --experiment reach_gravity_aligned`，短验证
 用`reach_gravity_aligned_smoke`。严格评估需新任务名，仍使用2–6cm目标、
 100回合、250步、seed20000及连续25样本指标以便对照。
+
+
+## 固定运动惩罚消融实验
+
+任务`RebotArm-Reach-GravityComp-FixedPenalties-Mjlab`，契约
+`reach-position-gravity-compensated-v3-fixed-penalties-v1`。
+只取消重力补偿版的两项奖励课程：动作变化与关节速度惩罚全程保持
+-0.0001，不再于4501控制步后增强。姿态奖励-0.1、PPO、动作、观测、
+动力学、目标分布及时序均沿用重力补偿版。
+按项目的实验契约隔离规则，新旧任务权重禁止交叉加载；虽然推理动作与
+观测相同，这仍是独立训练配方，正式对照从头训练，不从旧权重恢复。
+
+启动：`python scripts/train.py --experiment reach_gravity_fixed`；
+短验证使用`reach_gravity_fixed_smoke`。128环境、24步、1000轮、seed7、
+每50轮保存，与原重力补偿实验相同。使用相同固定目标分别比较中间与
+最终权重，不能只用训练总奖励判断改善，因为奖励课程已不同。

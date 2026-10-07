@@ -67,9 +67,16 @@ REACH_GRAVITY = replace(
 )
 
 
+REACH_GRAVITY_FIXED = replace(
+    REACH_GRAVITY,
+    version="reach-position-gravity-compensated-v3-fixed-penalties-v1",
+    task_id="RebotArm-Reach-GravityComp-FixedPenalties-Mjlab",
+)
+
+
 def contract_for_task(task_id: str) -> PolicyContract:
     """根据任务名取契约，不用张量维度猜测策略版本。"""
-    for contract in (REACH_V1, REACH_ALIGNED, REACH_ORIENTATION_ALIGNED, REACH_GRAVITY):
+    for contract in (REACH_V1, REACH_ALIGNED, REACH_ORIENTATION_ALIGNED, REACH_GRAVITY, REACH_GRAVITY_FIXED):
         if contract.task_id == task_id:
             return contract
     raise ValueError(f"未知任务: {task_id}")

@@ -70,3 +70,10 @@ def make_gravity_aligned_env_cfg(*, play=False, num_envs=128):
     cfg.scene.entities['robot'] = deepcopy(cfg.scene.entities['robot'])
     cfg.scene.entities['robot'].spec_fn = gravity_compensated_spec
     return cfg
+
+
+def make_gravity_fixed_env_cfg(*, play=False, num_envs=128):
+    """Ablate only the penalty curriculum; keep both initial weights at -1e-4."""
+    cfg = make_gravity_aligned_env_cfg(play=play, num_envs=num_envs)
+    cfg.curriculum = {}
+    return cfg
