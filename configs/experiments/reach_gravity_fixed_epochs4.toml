@@ -1,0 +1,10 @@
+task = "RebotArm-Reach-GravityComp-FixedPenalties-Mjlab"
+run_kind = "train"
+seed = 7
+
+[args]
+"env.scene.num-envs" = 128
+"agent.num-steps-per-env" = 24
+"agent.max-iterations" = 1000
+"agent.save-interval" = 50
+"agent.algorithm.num-learning-epochs" = 4

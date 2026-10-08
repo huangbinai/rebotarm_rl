@@ -96,3 +96,13 @@ python -m rebotarm_rl.evaluation.paired_eval \
 - 环境快照被实验引用时保留；`runs/`整体不提交Git，正式产物归档到持久存储。
 
 历史runs单独盘点，不因记录格式调整自动搬迁或删除。仓库只维护本规范，不为每次短训练增加验证报告。
+
+## PPO更新轮数对照
+
+`reach_gravity_fixed_epochs4`沿用固定惩罚任务，仅将每批数据的PPO学习轮数从8改为4。动作、观测、动力学与奖励契约不变，因此不新增任务或策略契约；训练配方由实验名、提交与params区分。对照从头训练1000轮，seed7、17、31，128环境×24步。
+
+```bash
+python scripts/train.py --experiment reach_gravity_fixed_epochs4 --seed 7 --environment 2026-10-04-preflight
+```
+
+统一用seed30000比较100、200、250、300、400、600、800、999轮；按末段保持成功数最高选候选，并列按平均位置误差最低，再并列选较早轮次。随后在新seed80000的100个目标上比较三种子的候选及最终权重与8轮更新对照。该比较控制采样步数，不等计算量。
