@@ -63,6 +63,7 @@ def main():
     parser.add_argument('--episodes', type=int, default=10)
     parser.add_argument('--steps', type=int, default=250)
     parser.add_argument('--task', choices=['RebotArm-Reach-Mjlab', 'RebotArm-Reach-OfficialAligned-Mjlab', 'RebotArm-Reach-OfficialAligned-Orientation-Mjlab', 'RebotArm-Reach-GravityComp-Mjlab', 'RebotArm-Reach-GravityComp-FixedPenalties-Mjlab'], default='RebotArm-Reach-Mjlab')
+    parser.add_argument('--backend', choices=['paired', 'gpu'], default='paired')
     parser.add_argument('--seed', type=int, default=20000)
     parser.add_argument('--save-trajectories', action='store_true',
                         help='保留逐步误差轨迹，正式评估或诊断时使用')
@@ -146,11 +147,24 @@ def main():
             target_quat = home_quat.copy()
             command.target_pos[:] = torch.as_tensor(target, device='cuda:0', dtype=torch.float32)
             command.target_quat[:] = torch.as_tensor(target_quat, device='cuda:0', dtype=torch.float32)
-            results = {'cpu': [], 'gpu': []}
+            results = {'cpu': [], 'gpu': []} if args.backend == 'paired' else {'gpu': []}
             q_deltas = []
             movements = []
             cpu_last_action = np.zeros(6, dtype=np.float32)
             for step in range(args.steps + 1):
+                if args.backend == 'gpu':
+                    gpose = robot.data.site_pose_w[0, command.site_id].cpu().numpy()
+                    pe, oe = errors(gpose[:3], gpose[3:], target, target_quat)
+                    if not np.isfinite([pe, oe]).all():
+                        raise ValueError('Non-finite GPU trajectory')
+                    results['gpu'].append([pe, oe, bool(pe < contract.success_position_m and oe < contract.success_orientation_rad)])
+                    movements.append(float(np.max(np.abs(robot.data.joint_pos[0].cpu().numpy()[:6] - initial_qpos[:6]))))
+                    if step == args.steps:
+                        break
+                    with torch.inference_mode():
+                        ga = policy(TensorDict({'actor': base.observation_manager.compute_group('actor')}, batch_size=[1]))
+                    env.step(ga)
+                    continue
                 cpos, cquat = pose(model, data, site)
                 gpose = robot.data.site_pose_w[0, command.site_id].cpu().numpy()
                 for backend, p, q in [('cpu', cpos, cquat), ('gpu', gpose[:3], gpose[3:])]:
@@ -201,7 +215,7 @@ def main():
                    'target_quaternion_wxyz': target_quat.tolist(),
                    'initial_joint_position_rad': initial_qpos.tolist(),
                    'initial_joint_velocity_rad_s': initial_qvel.tolist(),
-                   'max_joint_trajectory_delta_rad': max(q_deltas),
+                   'max_joint_trajectory_delta_rad': max(q_deltas) if q_deltas else None,
                    'max_joint_displacement_from_initial_rad': max(movements)}
             for backend in results:
                 trajectory = results[backend]
@@ -214,7 +228,7 @@ def main():
                     row[backend]['error_trajectory'] = trajectory
             rows.append(row)
         summary = {}
-        for backend in ('cpu', 'gpu'):
+        for backend in results:
             backend_rows = rows
             if args.exclude_initial_success:
                 backend_rows = [r for r in rows if not r[backend]['initial_success']]
@@ -227,7 +241,7 @@ def main():
                 'mean_final_orientation_error_rad': float(np.mean([r[backend]['final_orientation_error_rad'] for r in backend_rows])),
             }
         conditions = {
-            'backends': ['cpu_mujoco', 'gpu_warp'], 'device': 'cuda:0',
+            'backends': ['cpu_mujoco', 'gpu_warp'] if args.backend == 'paired' else ['gpu_warp'], 'device': 'cuda:0',
             'deterministic_policy': True, 'clip_actions': rl_cfg.clip_actions,
             'actuator_limits': 'compiled model actuator limits',
             'automatic_termination': False,
@@ -248,9 +262,9 @@ def main():
                   'conditions': conditions, 'selection_reason': args.selection_reason,
                   'seed': args.seed, 'episodes': args.episodes, 'steps': args.steps,
                   'control_dt_s': cfg.decimation * model.opt.timestep,
-                  'integrator': int(model.opt.integrator), 'max_initial_obs_delta': max_initial_obs_delta,
-                  'max_observation_delta': max_observation_delta,
-                  'scope': 'Deterministic CPU/GPU paired evaluation; alone does not establish convergence, generalization or hardware acceptance',
+                  'integrator': int(model.opt.integrator), 'max_initial_obs_delta': max_initial_obs_delta if args.backend == 'paired' else None,
+                  'max_observation_delta': max_observation_delta if args.backend == 'paired' else None,
+                  'scope': f'Deterministic {args.backend} evaluation; alone does not establish convergence, generalization or hardware acceptance',
                   'summary': summary, 'results': rows}
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(json.dumps(report, indent=2, allow_nan=False) + '\n')

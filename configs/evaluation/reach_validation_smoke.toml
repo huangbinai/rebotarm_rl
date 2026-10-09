@@ -4,3 +4,5 @@ seed = 30000
 hold_steps = 25
 target_min_radius = 0.02
 target_max_radius = 0.06
+interval = 100
+test_seed = 100000

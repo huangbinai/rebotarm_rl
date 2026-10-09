@@ -83,7 +83,7 @@ def main() -> None:
     parser.add_argument("--seed", type=int, help="覆盖实验种子")
     parser.add_argument("--environment", help="runs/environments 下已有依赖快照名称，不含 .txt")
     parser.add_argument("--dry-run", action="store_true", help="只预览命令，不检查 Git 或启动训练")
-    parser.add_argument("--validation", help="configs/evaluation下固定验证TOML名称；每次保存后评估并选择权重")
+    parser.add_argument("--validation", help="configs/evaluation下固定验证TOML名称；按验证间隔评估，结束后测试选定权重")
     args = parser.parse_args()
     try:
         config = load_experiment(args.experiment)

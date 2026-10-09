@@ -108,18 +108,28 @@ python scripts/train.py --experiment reach_gravity_fixed_epochs4 --seed 7 --envi
 统一用seed30000比较100、200、250、300、400、600、800、999轮；按末段保持成功数最高选候选，并列按平均位置误差最低，再并列选较早轮次。随后在新seed80000的100个目标上比较三种子的候选及最终权重与8轮更新对照。该比较控制采样步数，不等计算量。
 
 
-## 保存时固定验证与最佳权重选择
+## 定期单后端验证与最终独立测试
 
 ```bash
 python scripts/train.py --experiment reach_gravity_fixed --seed 7 --environment 2026-10-04-preflight --validation reach_validation
 ```
 
-`--validation`读取`configs/evaluation/<名称>.toml`，在每次原生权重保存后（包括首次保存与最后保存）同步启动独立评估子进程。周期由原生`agent.save-interval`决定。子进程使用注册任务的评估配置，固定目标、不自动结束或刷新目标；不会重置训练环境或修改训练进程随机状态。单进程训练适用，暂不支持多GPU分布式。每个checkpoint执行100回合×250步CPU/GPU配对，会显著增加墙钟时间，但不增加训练采样步数。不应在此模式下任意覆盖任务动力学、观测或网络结构：评估仍使用注册任务定义。
+`--validation`读取`configs/evaluation/<名称>.toml`。默认`interval=100`，跳过编号0，在编号100、200等已保存权重上启动独立GPU评估子进程；训练正常结束后补评最终权重，选定候选，再对候选执行一次不同目标种子的GPU测试。周期沿用原生checkpoint编号（从0计数），不是精确的第100次优化更新。验证间隔必须是原生save-interval的整数倍，不改变保存频率。短训练不足一个周期时仍会评估最终权重。
 
-验证协议保存在运行目录`validation_protocol.json`。评估JSON和日志在`eval/validation/`，保留逐步误差。`selection.json`记录所有已验证权重及`best`，权重路径相对运行根目录，报告含SHA-256。按GPU末段保持成功数最高、平均最终位置误差最低、较早轮次依次选择。它是已评估检查点中的最佳，不是所有训练迭代的全局最佳。末段保持25样本的端点跨度为0.48秒。
+默认每次100回合×250控制步，固定目标2–6cm，不自动结束或刷新；验证seed30000，独立测试test_seed100000，必须不同。用户重复调参后应主动更换尚未用于决策的test_seed，不能把反复查看的测试集称为永远未见。单GPU后端避免CPU配对轨迹开销，但逐回合评估仍增加运行时间，不增加训练采样步数。独立进程不重置训练环境、不改变父进程随机状态，暂不支持多GPU分布式训练。
 
-不复制selected权重，不删除旧权重，不自动早停或恢复训练。验证报错则中止当前训练，已保存权重和失败日志保留，旧best不会被失败结果替换；报告身份、协议、回合数或指标不合法也拒绝更新。相同权重重复保存只跳过已验证且哈希相同的结果，若权重内容变化则明确报错。同一运行禁止混用验证协议。未启用时清除继承的验证环境变量，保持原训练行为。
+协议在`validation_protocol.json`；验证JSON/日志在`eval/validation/`，`selection.json`记录已评估候选和best。按GPU末段保持成功数最高、平均最终位置误差最低、较早轮次选择，只代表已评估检查点中的最佳。末段25样本端点跨度0.48秒。独立测试JSON/日志在`eval/test/`，引用选定权重哈希，测试结果不回写selection，不自动重新选择候选。两类评估均保留逐步误差；脚本不会生成AI分析报告。
 
-验证集用于选权重，不能作为独立测试集。选定后另用新seed运行配对评估，不将测试结果写入selection。训练success仍是重置时读取的缓存瞬时指标，不能代替这里的末段保持成功率。脚本不生成AI分析报告。
+评估失败则报错并保留产物，失败结果不会替换best。训练中断或训练异常不自动执行最终独立测试；若训练完成但独立测试失败，应区分两者状态。协议或权重身份不匹配明确拒绝。同一权重同一哈希已评估则跳过，已评估权重被覆盖则拒绝复用。没有复制selected权重、不删除旧权重、不自动早停。未指定--validation时仍保持原训练行为。
 
-短验证：`python scripts/train.py --experiment reach_gravity_fixed_smoke --validation reach_validation_smoke`。该协议只有2回合，用于检查链路，不代表策略质量。
+评估使用注册任务的环境与网络定义，不能任意覆盖训练动力学、观测或网络结构后假设评估自动复用这些覆盖。PPO学习轮数等不影响推理结构的覆盖可用。旧版selection协议不会静默迁移为本协议。
+
+CPU/GPU配对继续作为手动检查工具；修改动力学或评估实现后重点执行：
+
+```bash
+MUJOCO_GL=egl python -m rebotarm_rl.evaluation.paired_eval --task RebotArm-Reach-GravityComp-FixedPenalties-Mjlab --checkpoint /path/to/model.pt --output /path/to/paired.json --backend paired
+```
+
+原生入口默认仍是paired；`--backend gpu`仅运行GPU策略轨迹，仍用CPU读取编译模型的初始TCP以保持目标采样一致，不执行CPU策略轨迹。单后端报告的一致性差值为null，不表示差值为零。
+
+短验证：`python scripts/train.py --experiment reach_gravity_fixed_smoke --validation reach_validation_smoke`（2回合，含最终验证及独立测试，仅检查链路）。

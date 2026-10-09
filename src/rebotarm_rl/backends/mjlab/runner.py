@@ -33,14 +33,28 @@ class RecordedRunner(MjlabOnPolicyRunner):
             if int(os.environ.get('WORLD_SIZE', '1')) != 1:
                 raise ValueError('固定验证目前仅支持单进程训练')
             self._validation_protocol = validate_protocol(json.loads(os.environ['REBOTARM_RL_VALIDATION']))
+            if self._validation_protocol['interval'] % train_cfg['save_interval'] != 0:
+                raise ValueError('验证间隔必须为权重保存间隔的整数倍')
             write_json(Path(log_dir) / 'validation_protocol.json', self._validation_protocol)
 
     def save(self, path: str, infos=None) -> None:
         """随权重保存契约；保留上游环境计数器与上传逻辑。"""
         super().save(path, {**(infos or {}), "policy_contract": self.contract.to_dict()})
-        if self._validation_protocol is not None:
+        self._last_saved_checkpoint = Path(path)
+        if (self._validation_protocol is not None
+                and int(Path(path).stem.removeprefix('model_')) > 0
+                and int(Path(path).stem.removeprefix('model_')) % self._validation_protocol['interval'] == 0):
             from .evaluation.selection import validate_saved_checkpoint
             validate_saved_checkpoint(Path(path), self.contract.task_id, self._validation_protocol)
+
+    def learn(self, *args, **kwargs):
+        result = super().learn(*args, **kwargs)
+        if self._validation_protocol is not None:
+            from .evaluation.selection import validate_saved_checkpoint, test_selected_checkpoint
+            checkpoint = self._last_saved_checkpoint
+            validate_saved_checkpoint(checkpoint, self.contract.task_id, self._validation_protocol)
+            test_selected_checkpoint(checkpoint.parent, self.contract.task_id, self._validation_protocol)
+        return result
 
     def load(self, path, *args, **kwargs):
         validate_checkpoint_contract(Path(path), self.contract)

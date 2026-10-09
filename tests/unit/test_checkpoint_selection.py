@@ -61,3 +61,21 @@ def test_invalid_metrics_and_ranking(tmp_path):
     with pytest.raises(ValueError):s.candidate(p,d,P,'task')
     for override in [dict(seed=-1),dict(episodes=0),dict(hold_steps=252),dict(target_min_radius=float('nan'))]:
         with pytest.raises(ValueError):s.validate_protocol({**P,**override})
+
+
+def test_holdout_does_not_change_selection(tmp_path, monkeypatch):
+    path=tmp_path/'model_100.pt';path.write_bytes(b'weights')
+    def run(command, **kwargs):
+        assert command[command.index('--backend')+1]=='gpu'
+        d=report(path)
+        d['seed']=int(command[command.index('--seed')+1])
+        Path(command[command.index('--output')+1]).write_text(json.dumps(d))
+    monkeypatch.setattr(s.subprocess,'run',run)
+    protocol=s.validate_protocol(P)
+    s.validate_saved_checkpoint(path,'task',protocol)
+    ledger=tmp_path/'eval/validation/selection.json';before=ledger.read_bytes()
+    s.test_selected_checkpoint(tmp_path,'task',protocol)
+    assert ledger.read_bytes()==before
+    assert json.loads((tmp_path/'eval/test/model_100_seed100000.json').read_text())['seed']==100000
+    with pytest.raises(ValueError,match='测试种子'):
+        s.validate_protocol({**P,'test_seed':30000})

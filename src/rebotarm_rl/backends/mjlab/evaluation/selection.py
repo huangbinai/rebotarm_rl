@@ -1,4 +1,4 @@
-"""Synchronous, isolated checkpoint validation using the native paired evaluator."""
+"""Synchronous, isolated checkpoint validation using the native single-GPU evaluator."""
 import hashlib
 import json
 import math
@@ -15,11 +15,12 @@ def write_json(path: Path, value: dict) -> None:
 
 
 def validate_protocol(protocol: dict) -> dict:
-    required = {'episodes', 'steps', 'seed', 'hold_steps', 'target_min_radius', 'target_max_radius'}
+    protocol = {'interval': 100, 'test_seed': 100000, **protocol}
+    required = {'episodes', 'steps', 'seed', 'hold_steps', 'target_min_radius', 'target_max_radius', 'interval', 'test_seed'}
     if set(protocol) != required:
         raise ValueError('验证配置字段不完整或含未知字段')
-    for name in ('episodes', 'steps', 'seed', 'hold_steps'):
-        if type(protocol[name]) is not int or protocol[name] < (0 if name == 'seed' else 1):
+    for name in ('episodes', 'steps', 'seed', 'hold_steps', 'interval', 'test_seed'):
+        if type(protocol[name]) is not int or protocol[name] < (0 if name in ('seed', 'test_seed') else 1):
             raise ValueError(f'无效验证参数: {name}')
     if protocol['hold_steps'] > protocol['steps'] + 1:
         raise ValueError('保持样本数超过评估轨迹长度')
@@ -28,6 +29,8 @@ def validate_protocol(protocol: dict) -> dict:
         raise ValueError('目标半径必须有限')
     if not 0.01 <= low <= high <= 0.06:
         raise ValueError('固定验证目标半径须满足0.01 <= min <= max <= 0.06')
+    if protocol['seed'] == protocol['test_seed']:
+        raise ValueError('测试种子必须与验证种子不同')
     return dict(protocol)
 
 
@@ -82,7 +85,10 @@ def validate_saved_checkpoint(checkpoint: Path, task: str, protocol: dict) -> No
     command = [sys.executable, '-m', 'rebotarm_rl.evaluation.paired_eval',
                '--task', task, '--checkpoint', str(checkpoint.resolve()),
                '--output', str(report_path.resolve()), '--exclude-initial-success', '--save-trajectories']
+    command.extend(['--backend', 'gpu'])
     for name, value in protocol.items():
+        if name in ('interval', 'test_seed'):
+            continue
         command.extend(['--' + name.replace('_', '-'), str(value)])
     child_env = os.environ.copy()
     child_env.pop('REBOTARM_RL_VALIDATION', None)
@@ -97,3 +103,29 @@ def validate_saved_checkpoint(checkpoint: Path, task: str, protocol: dict) -> No
     write_json(ledger_path, ledger)
     print(f"[Validation] {checkpoint.name}: tail={item['tail_success_count']}/{protocol['episodes']}; "
           f"best={ledger['best']['checkpoint']}", flush=True)
+
+
+def test_selected_checkpoint(directory: Path, task: str, protocol: dict) -> None:
+    """Test the frozen validation winner; never feed test results into selection."""
+    ledger = json.loads((directory / 'eval/validation/selection.json').read_text())
+    winner = ledger['best']
+    checkpoint = directory / winner['checkpoint']
+    if hashlib.sha256(checkpoint.read_bytes()).hexdigest() != winner['checkpoint_sha256']:
+        raise ValueError('选定权重已改变')
+    output = directory / 'eval/test' / f"{checkpoint.stem}_seed{protocol['test_seed']}.json"
+    output.parent.mkdir(parents=True, exist_ok=True)
+    command = [sys.executable, '-m', 'rebotarm_rl.evaluation.paired_eval',
+               '--task', task, '--checkpoint', str(checkpoint.resolve()), '--backend', 'gpu',
+               '--output', str(output.resolve()), '--exclude-initial-success', '--save-trajectories',
+               '--selection-reason', 'Frozen validation winner; test results do not change selection']
+    test_protocol = {**protocol, 'seed': protocol['test_seed']}
+    for name, value in test_protocol.items():
+        if name not in ('interval', 'test_seed'):
+            command.extend(['--' + name.replace('_', '-'), str(value)])
+    child_env = os.environ.copy()
+    child_env.pop('REBOTARM_RL_VALIDATION', None)
+    child_env['MUJOCO_GL'] = 'egl'
+    with output.with_suffix('.log').open('w') as log:
+        subprocess.run(command, env=child_env, stdout=log, stderr=subprocess.STDOUT, check=True)
+    candidate(checkpoint, json.loads(output.read_text()), test_protocol, task)
+    print(f'[Test] Frozen winner {checkpoint.name}: {output}', flush=True)
