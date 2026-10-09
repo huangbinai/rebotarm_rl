@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 from pathlib import Path
 import re
@@ -56,7 +57,7 @@ def build_launch(name: str, config: dict, seed: int, environment: str | None) ->
         raise ValueError("seed 必须为非负整数")
     env = os.environ.copy()
     for key in ("PYTHONPATH", "AMENT_PREFIX_PATH", "COLCON_PREFIX_PATH",
-                "REBOTARM_MJLAB_SCENE", "REBOTARM_RL_ENVIRONMENT"):
+                "REBOTARM_MJLAB_SCENE", "REBOTARM_RL_ENVIRONMENT", "REBOTARM_RL_VALIDATION"):
         env.pop(key, None)
     env.update(MUJOCO_GL="egl", REBOTARM_RL_RUN_KIND=config["run_kind"])
     if environment is not None:
@@ -82,11 +83,19 @@ def main() -> None:
     parser.add_argument("--seed", type=int, help="覆盖实验种子")
     parser.add_argument("--environment", help="runs/environments 下已有依赖快照名称，不含 .txt")
     parser.add_argument("--dry-run", action="store_true", help="只预览命令，不检查 Git 或启动训练")
+    parser.add_argument("--validation", help="configs/evaluation下固定验证TOML名称；每次保存后评估并选择权重")
     args = parser.parse_args()
     try:
         config = load_experiment(args.experiment)
         seed = config["seed"] if args.seed is None else args.seed
         command, env = build_launch(args.experiment, config, seed, args.environment)
+        if args.validation:
+            if not re.fullmatch(r"[a-zA-Z0-9_-]+", args.validation):
+                raise ValueError('非法验证配置名称')
+            from rebotarm_rl.backends.mjlab.evaluation.selection import validate_protocol
+            with (ROOT / 'configs/evaluation' / f'{args.validation}.toml').open('rb') as stream:
+                protocol = validate_protocol(tomllib.load(stream))
+            env['REBOTARM_RL_VALIDATION'] = json.dumps(protocol)
         if not args.dry_run and config["run_kind"] == "train":
             require_clean_repository()
     except (OSError, ValueError, subprocess.CalledProcessError) as exc:
@@ -94,6 +103,8 @@ def main() -> None:
     print(f"实验: {args.experiment} | 类型: {config['run_kind']} | 种子: {seed}", flush=True)
     print(f"依赖环境: {args.environment or sys.prefix}", flush=True)
     print(shlex.join(command), flush=True)
+    if args.validation:
+        print('固定验证: ' + env['REBOTARM_RL_VALIDATION'], flush=True)
     if args.dry_run:
         return
     # 替换当前进程，使终端 Ctrl+C 和退出码直接由原生训练处理。

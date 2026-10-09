@@ -27,10 +27,20 @@ class RecordedRunner(MjlabOnPolicyRunner):
                 mujoco.mj_saveModel(env.unwrapped.sim.mj_model,
                                    str(path / "compiled_model.mjb"), None)
         self._record_directory = Path(log_dir) if log_dir else None
+        self._validation_protocol = None
+        if log_dir and os.environ.get('REBOTARM_RL_VALIDATION'):
+            from .evaluation.selection import validate_protocol, write_json
+            if int(os.environ.get('WORLD_SIZE', '1')) != 1:
+                raise ValueError('固定验证目前仅支持单进程训练')
+            self._validation_protocol = validate_protocol(json.loads(os.environ['REBOTARM_RL_VALIDATION']))
+            write_json(Path(log_dir) / 'validation_protocol.json', self._validation_protocol)
 
     def save(self, path: str, infos=None) -> None:
         """随权重保存契约；保留上游环境计数器与上传逻辑。"""
         super().save(path, {**(infos or {}), "policy_contract": self.contract.to_dict()})
+        if self._validation_protocol is not None:
+            from .evaluation.selection import validate_saved_checkpoint
+            validate_saved_checkpoint(Path(path), self.contract.task_id, self._validation_protocol)
 
     def load(self, path, *args, **kwargs):
         validate_checkpoint_contract(Path(path), self.contract)

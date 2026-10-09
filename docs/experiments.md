@@ -24,7 +24,7 @@ python scripts/train.py --experiment reach_smoke
 python scripts/train.py --experiment reach_baseline --environment 2026-10-04-preflight
 ```
 
-上例仅适用于已存在且仍匹配的快照。运行记录保存展开后的原生命令，最终配置仍由mjlab写入`params/`；实验TOML由Git提交追溯，不另存重复配置。入口不自动评估或生成分析，训练后按下文独立评估。
+上例仅适用于已存在且仍匹配的快照。运行记录保存展开后的原生命令，最终配置仍由mjlab写入`params/`；实验TOML由Git提交追溯，不另存重复配置。入口默认不自动评估；显式使用--validation启用下文固定验证，分析说明仍由Codex读取结果后维护。
 
 ## 默认输出
 
@@ -106,3 +106,20 @@ python scripts/train.py --experiment reach_gravity_fixed_epochs4 --seed 7 --envi
 ```
 
 统一用seed30000比较100、200、250、300、400、600、800、999轮；按末段保持成功数最高选候选，并列按平均位置误差最低，再并列选较早轮次。随后在新seed80000的100个目标上比较三种子的候选及最终权重与8轮更新对照。该比较控制采样步数，不等计算量。
+
+
+## 保存时固定验证与最佳权重选择
+
+```bash
+python scripts/train.py --experiment reach_gravity_fixed --seed 7 --environment 2026-10-04-preflight --validation reach_validation
+```
+
+`--validation`读取`configs/evaluation/<名称>.toml`，在每次原生权重保存后（包括首次保存与最后保存）同步启动独立评估子进程。周期由原生`agent.save-interval`决定。子进程使用注册任务的评估配置，固定目标、不自动结束或刷新目标；不会重置训练环境或修改训练进程随机状态。单进程训练适用，暂不支持多GPU分布式。每个checkpoint执行100回合×250步CPU/GPU配对，会显著增加墙钟时间，但不增加训练采样步数。不应在此模式下任意覆盖任务动力学、观测或网络结构：评估仍使用注册任务定义。
+
+验证协议保存在运行目录`validation_protocol.json`。评估JSON和日志在`eval/validation/`，保留逐步误差。`selection.json`记录所有已验证权重及`best`，权重路径相对运行根目录，报告含SHA-256。按GPU末段保持成功数最高、平均最终位置误差最低、较早轮次依次选择。它是已评估检查点中的最佳，不是所有训练迭代的全局最佳。末段保持25样本的端点跨度为0.48秒。
+
+不复制selected权重，不删除旧权重，不自动早停或恢复训练。验证报错则中止当前训练，已保存权重和失败日志保留，旧best不会被失败结果替换；报告身份、协议、回合数或指标不合法也拒绝更新。相同权重重复保存只跳过已验证且哈希相同的结果，若权重内容变化则明确报错。同一运行禁止混用验证协议。未启用时清除继承的验证环境变量，保持原训练行为。
+
+验证集用于选权重，不能作为独立测试集。选定后另用新seed运行配对评估，不将测试结果写入selection。训练success仍是重置时读取的缓存瞬时指标，不能代替这里的末段保持成功率。脚本不生成AI分析报告。
+
+短验证：`python scripts/train.py --experiment reach_gravity_fixed_smoke --validation reach_validation_smoke`。该协议只有2回合，用于检查链路，不代表策略质量。

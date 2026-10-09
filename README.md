@@ -40,6 +40,8 @@ python scripts/train.py --experiment reach_baseline --seed 7
 
 VS Code选择本项目`.venv/bin/python`解释器，打开`scripts/train.py`并点击“运行 Python 文件”，即启动默认正式基线。通过集成终端传入参数可选择其他实验。
 
+可选保存时固定验证：在训练命令后加`--validation reach_validation`，按独立验证集选择已保存权重，结果见运行目录`eval/validation/selection.json`。验证会增加运行时间；选定后仍需另用新目标集测试。
+
 ## 回放与评估
 
 ```bash

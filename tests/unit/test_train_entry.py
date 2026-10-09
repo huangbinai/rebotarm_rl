@@ -17,6 +17,7 @@ def test_isolated_launch_and_seed_override(monkeypatch):
     monkeypatch.setenv("REBOTARM_MJLAB_SCENE", "/other/model.xml")
     monkeypatch.setenv("REBOTARM_RL_RUN_KIND", "smoke")
     monkeypatch.setenv("REBOTARM_RL_ENVIRONMENT", "stale")
+    monkeypatch.setenv("REBOTARM_RL_VALIDATION", "stale")
     cfg = API["load_experiment"]("reach_baseline")
     command, env = API["build_launch"]("reach_baseline", cfg, 19, None)
     assert command[:4] == [sys.executable, "-m", "mjlab.scripts.train", "RebotArm-Reach-Mjlab"]
@@ -24,7 +25,7 @@ def test_isolated_launch_and_seed_override(monkeypatch):
     assert command[command.index("--agent.run-name") + 1] == "reach_baseline_seed19"
     assert command[command.index("--log-root") + 1] == "runs/train"
     assert env["REBOTARM_RL_RUN_KIND"] == "train"
-    assert not {"PYTHONPATH", "REBOTARM_MJLAB_SCENE", "REBOTARM_RL_ENVIRONMENT"} & env.keys()
+    assert not {"PYTHONPATH", "REBOTARM_MJLAB_SCENE", "REBOTARM_RL_ENVIRONMENT", "REBOTARM_RL_VALIDATION"} & env.keys()
     assert os.environ["PYTHONPATH"] == "/other/workspace"
     with pytest.raises(ValueError, match="快照"):
         API["build_launch"]("reach_baseline", cfg, 7, "missing-test-snapshot")
