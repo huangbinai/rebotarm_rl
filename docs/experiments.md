@@ -28,6 +28,10 @@ python scripts/train.py --experiment reach_baseline --environment 2026-10-04-pre
 
 ## 默认输出
 
+官方对齐及其派生 Reach 实验统一写入 `runs/train/rebotarm_reach/`，各次运行仍以时间戳和实验名区分。历史目录 `rebotarm_reach_official_aligned` 已迁移，并更新记录中的权重路径；历史 `params/agent.yaml` 保留当时的实验目录名称，不改写原始训练配置。
+
+已完成的任务1运行按用途整理：`mainline/` 保留固定惩罚8轮PPO的seed7、17、31三个运行，`history/` 保留其余七次基线及消融运行。迁移同步更新评估JSON、恢复来源路径和分析中的相对链接，保留权重内容与哈希。新训练仍由原生训练器写入 `rebotarm_reach/<时间戳>_<运行名>/`，完成评估后再决定归类；目录分类不自动代表训练质量。
+
 使用mjlab原生目录，短训练指定`--log-root runs/smoke`，正式训练指定`--log-root runs/train`。上游在其下创建`<实验名>/<时间戳>[_run_name]/`。恢复训练创建新目录，记录来源权重路径及哈希。
 
 | 文件 | 内容与负责方 |

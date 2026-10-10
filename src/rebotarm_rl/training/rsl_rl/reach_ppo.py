@@ -39,6 +39,6 @@ def aligned_runner_cfg():
     cfg.algorithm.entropy_coef = .001
     cfg.algorithm.learning_rate = .001
     cfg.algorithm.num_learning_epochs = 8
-    cfg.experiment_name = 'rebotarm_reach_official_aligned'
+    cfg.experiment_name = 'rebotarm_reach'
     cfg.save_interval = 50
     return cfg
