@@ -1,8 +1,10 @@
-episodes = 2
-steps = 250
-seed = 30000
-hold_steps = 25
-target_min_radius = 0.02
-target_max_radius = 0.06
-interval = 100
-test_seed = 100000
+# GPU验证/测试链路短检查；仅2回合，不能用于判断成功率或泛化。
+# 启用：python scripts/train.py --experiment reach_gravity_fixed_smoke --validation reach_validation_smoke
+episodes = 2 # 每个权重评估的回合数。
+steps = 250 # 每回合控制步数；当前共5秒，保持与正式评估一致。
+seed = 30000 # 验证目标种子，不是训练种子。
+hold_steps = 25 # 连续成功采样点数；当前端点跨度0.48秒。
+target_min_radius = 0.02 # 初始TCP附近采样半径下限，单位米。
+target_max_radius = 0.06 # 采样半径上限，单位米；径向均匀采样。
+interval = 100 # 须为保存间隔的整数倍；短训练不足周期时仍评估最终权重。
+test_seed = 100000 # 最终测试目标种子，必须不同于验证seed；只用于链路检查。

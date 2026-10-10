@@ -1,9 +1,12 @@
-task = "RebotArm-Reach-GravityComp-FixedPenalties-Mjlab"
-run_kind = "train"
-seed = 7
+# 当前主线：重力补偿 + 固定运动惩罚 Reach。
+# 启动：python scripts/train.py --validation reach_validation
+# 仅记录实验覆盖；奖励在任务config.py，网络/PPO在training/rsl_rl/reach_ppo.py。
+task = "RebotArm-Reach-GravityComp-FixedPenalties-Mjlab" # 必须与权重契约匹配。
+run_kind = "train" # 正式训练，要求Git工作区已提交且干净。
+seed = 42 # 训练随机种子；显式 --seed 优先。
 
 [args]
-"env.scene.num-envs" = 128
-"agent.num-steps-per-env" = 24
-"agent.max-iterations" = 1000
-"agent.save-interval" = 50
+"env.scene.num-envs" = 128 # 并行仿真环境数。
+"agent.num-steps-per-env" = 24 # 每轮每环境采样控制步数；合计128×24=3072条转移。
+"agent.max-iterations" = 1000 # 外层训练迭代数，不是回合数或PPO学习轮数。
+"agent.save-interval" = 50 # 原生权重保存间隔；验证间隔须为其整数倍。

@@ -36,7 +36,7 @@ python scripts/train.py --experiment reach_gravity_fixed --seed 7
 
 首次运行可先用`python scripts/train.py --experiment reach_gravity_fixed_smoke`完成短训练。短训练用于检查运行链路，不代表策略已经收敛。
 
-统一入口默认选择`reach_gravity_fixed`，未指定`--seed`时使用42；实验覆盖在`configs/experiments/*.toml`，奖励和网络仍由原生任务配置管理。使用`--dry-run`预览命令，使用`--environment 名称`关联已有依赖快照，详见[训练记录与产物](docs/experiments.md)。
+统一入口默认选择`reach_gravity_fixed`；未指定`--seed`时使用该TOML中的seed42；实验覆盖在`configs/experiments/*.toml`，奖励和网络仍由原生任务配置管理。使用`--dry-run`预览命令，使用`--environment 名称`关联已有依赖快照，详见[训练记录与产物](docs/experiments.md)。
 
 VS Code选择本项目`.venv/bin/python`解释器，打开`scripts/train.py`并点击“运行 Python 文件”，即启动固定惩罚版本的正式训练（seed42）。通过集成终端传入参数可选择其他实验。
 

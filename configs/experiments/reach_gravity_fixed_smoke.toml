@@ -1,7 +1,11 @@
-task = "RebotArm-Reach-GravityComp-FixedPenalties-Mjlab"
-run_kind = "smoke"
-seed = 7
+# 当前主线短验证：仅检查训练、权重加载及评估链路，不代表收敛。
+# 启动：python scripts/train.py --experiment reach_gravity_fixed_smoke --validation reach_validation_smoke
+# 未覆盖的奖励、网络和PPO参数继承原生固定惩罚任务配置。
+task = "RebotArm-Reach-GravityComp-FixedPenalties-Mjlab" # 与正式主线契约相同。
+run_kind = "smoke" # 写入runs/smoke；允许未提交修改，不作为可复现实验。
+seed = 42 # 训练随机种子；显式 --seed 优先。
 
 [args]
-"env.scene.num-envs" = 128
-"agent.max-iterations" = 2
+"env.scene.num-envs" = 128 # 与正式主线相同的并行规模。
+"agent.max-iterations" = 2 # 仅2轮；采样24步、保存间隔50继承原生配置。
+# 即使不足保存/验证周期，正常结束仍保存并验证最终权重（需启用--validation）。

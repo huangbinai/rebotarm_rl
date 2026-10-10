@@ -12,7 +12,7 @@ python scripts/train.py --experiment reach_gravity_fixed_smoke
 
 `configs/experiments/*.toml`只记录命名实验覆盖：`task`、`run_kind`、`seed`和`[args]`。参数表使用带引号的原生CLI键，例如`"agent.max-iterations" = 1000`。目前支持字符串和数值；网络结构等复杂配置仍放在原生配置中。未知原生参数由mjlab拒绝，不自行实现第二套训练配置系统。
 
-新增实验时新增TOML，不复制训练脚本。当前入口未传`--seed`时使用默认种子42，TOML中的种子不会自动生效；复现历史seed7实验请显式传入`--seed 7`；运行名为`实验名_seed种子`，输出根目录由`run_kind`选择`runs/train`或`runs/smoke`。这些字段由入口管理，不在`[args]`中重复定义。基线使用128环境、24步采样、1000轮更新；短验证使用同样并行规模、2轮更新。旧任务的四个短训练TOML已删除；短验证使用当前固定惩罚任务。
+新增实验时新增TOML，不复制训练脚本。种子优先级为显式`--seed` > TOML中的`seed`；省略命令行参数时，主线使用TOML记录的seed42，历史配方使用seed7。运行名为`实验名_seed种子`，输出根目录由`run_kind`选择`runs/train`或`runs/smoke`。这些字段由入口管理，不在`[args]`中重复定义。基线使用128环境、24步采样、1000轮更新；短验证使用同样并行规模、2轮更新。旧任务的四个短训练TOML已删除；短验证使用当前固定惩罚任务。
 
 入口固定使用仓库模型，移除继承的ROS/PYTHONPATH和自定义模型路径，设置EGL及实验类型；不修改父终端环境。需要自定义模型或原生复杂参数时直接使用mjlab CLI，并遵守模型与契约规则。
 

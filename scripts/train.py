@@ -80,7 +80,7 @@ def build_launch(name: str, config: dict, seed: int, environment: str | None) ->
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--experiment", default="reach_gravity_fixed", help="实验 TOML 名称；历史实验用 history/名称")
-    parser.add_argument("--seed", default=42, type=int, help="训练种子，默认42；覆盖实验TOML中的种子")
+    parser.add_argument("--seed", type=int, help="覆盖实验TOML中的训练种子；省略时使用TOML的seed")
     parser.add_argument("--environment", help="runs/environments 下已有依赖快照名称，不含 .txt")
     parser.add_argument("--dry-run", action="store_true", help="只预览命令，不检查 Git 或启动训练")
     parser.add_argument("--validation", help="configs/evaluation下固定验证TOML名称；按验证间隔评估，结束后测试选定权重")

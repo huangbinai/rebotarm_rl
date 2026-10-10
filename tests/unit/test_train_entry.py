@@ -64,6 +64,17 @@ def test_default_preview_uses_current_task_and_preserves_seed():
     assert "--agent.seed 42" in result.stdout
 
 
+@pytest.mark.parametrize("extra, expected", [([], 7), (["--seed", "19"], 19), (["--seed", "0"], 0)])
+def test_cli_seed_overrides_history_toml_only_when_explicit(extra, expected):
+    result = subprocess.run(
+        [sys.executable, str(ENTRY), "--experiment", "history/reach_gravity_fixed_epochs4",
+         "--dry-run", *extra], capture_output=True, text=True,
+    )
+    assert result.returncode == 0, result.stderr
+    assert f"--agent.seed {expected}" in result.stdout
+    assert f"--agent.run-name reach_gravity_fixed_epochs4_seed{expected}" in result.stdout
+
+
 def test_history_configs_and_safe_names():
     for path in (ROOT / "configs/experiments/history").glob("*.toml"):
         name = "history/" + path.stem

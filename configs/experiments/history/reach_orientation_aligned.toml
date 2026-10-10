@@ -1,9 +1,12 @@
-task = "RebotArm-Reach-OfficialAligned-Orientation-Mjlab"
-run_kind = "train"
-seed = 7
+# 历史单变量对照：相对官方对齐版，仅姿态奖励权重从-0.1改为-0.2。
+# 启动：python scripts/train.py --experiment history/reach_orientation_aligned
+# 未覆盖项继承该任务的原生奖励、网络和PPO配置；保留历史配方参数。
+task = "RebotArm-Reach-OfficialAligned-Orientation-Mjlab" # 必须与加载权重的策略契约匹配。
+run_kind = "train" # 正式训练，要求Git工作区已提交且干净。
+seed = 7 # 历史训练种子；显式 --seed 可覆盖。
 
 [args]
-"env.scene.num-envs" = 128
-"agent.num-steps-per-env" = 24
-"agent.max-iterations" = 1000
-"agent.save-interval" = 50
+"env.scene.num-envs" = 128 # 并行仿真环境数。
+"agent.num-steps-per-env" = 24 # 每轮每环境的控制步数；合计3072条转移。
+"agent.max-iterations" = 1000 # 外层训练迭代数，不是回合数。
+"agent.save-interval" = 50 # 原生权重保存间隔；验证间隔须为其整数倍。
