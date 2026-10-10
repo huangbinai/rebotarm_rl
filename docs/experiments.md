@@ -179,3 +179,10 @@ JSON保存在每个原训练运行的`eval/`下，含源码提交及dirty状态�
 冻结候选及幅度后才使用新目标/初态种子的独立测试，不能据测试重新选择候选。
 若新增训练，另注册任务和契约版本，保持奖励及PPO配方，使用固定目标回合与
 经检查的随机reset，并配置独立验证/测试集；不得改写旧权重元数据绕过契约。
+
+冻结后复核可传入`--selection-file /path/to/frozen_selection.json`。文件在测试前
+保存`checkpoint_sha256`、选择依据、验证文件引用、`validation_target_seeds`、
+`validation_initial_seeds`及`test_settings`；后者包含`amplitudes_rad`、`episodes`、
+`steps`、`hold_samples`、`target_seed`、`initial_seed`。入口逐项验证权重与条件，
+拒绝复用验证种子；报告保存该冻结文件的内容和哈希并标记`frozen_candidate_test`。
+测试不会更新冻结文件或重新选择权重。未传此参数的扫描始终属于诊断验证。

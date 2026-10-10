@@ -50,3 +50,26 @@ def test_hold_timing_jitter_and_joint_travel():
     poses[:, 0] = .02
     failed = trajectory_metrics(poses, joints, np.zeros(3), np.array([1., 0, 0, 0]), 26, .02)
     assert summarize([failed])['mean_first_success_time_s_successes_only'] is None
+
+
+def test_frozen_test_rejects_weight_changes_and_reused_seeds(tmp_path):
+    import json
+    pytest.importorskip('mjlab')
+    from rebotarm_rl.contracts.artifacts import file_hash
+    from rebotarm_rl.backends.mjlab.evaluation.random_start import validate_frozen_selection
+    checkpoint = tmp_path / 'model.pt'; checkpoint.write_bytes(b'frozen test identity')
+    path = tmp_path / 'selection.json'
+    settings = {'target_seed': 230000, 'initial_seed': 230001, 'episodes': 200}
+    record = {'checkpoint_sha256': file_hash(checkpoint), 'test_settings': settings,
+              'validation_target_seeds': [130000], 'validation_initial_seeds': [130001]}
+    path.write_text(json.dumps(record))
+    assert validate_frozen_selection(path, [checkpoint], settings)['record'] == record
+    with pytest.raises(ValueError, match='settings'):
+        validate_frozen_selection(path, [checkpoint], dict(settings, episodes=100))
+    record['validation_initial_seeds'].append(230001)
+    path.write_text(json.dumps(record))
+    with pytest.raises(ValueError, match='fresh'):
+        validate_frozen_selection(path, [checkpoint], settings)
+    checkpoint.write_bytes(b'overwritten')
+    with pytest.raises(ValueError, match='checkpoint'):
+        validate_frozen_selection(path, [checkpoint], settings)

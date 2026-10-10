@@ -29,6 +29,19 @@ from rebotarm_rl.contracts.policy import REACH_GRAVITY_FIXED
 from .paired_eval import pose, success_summary
 
 
+def validate_frozen_selection(path, checkpoints, settings):
+    """Bind a fresh test to a previously frozen weight and exact test settings."""
+    selection = json.loads(path.read_text())
+    if (len(checkpoints) != 1
+            or selection['checkpoint_sha256'] != file_hash(checkpoints[0])
+            or selection['test_settings'] != settings):
+        raise ValueError('Frozen checkpoint or test settings do not match')
+    if (settings['target_seed'] in selection['validation_target_seeds']
+            or settings['initial_seed'] in selection['validation_initial_seeds']):
+        raise ValueError('Test must use fresh target and initial-state seeds')
+    return {'path': str(path.resolve()), 'sha256': file_hash(path), 'record': selection}
+
+
 def state_rejection(model, data, qadr, joint_ids, q, margin=0.01):
     """Return a rejection reason; only compiled, enabled contacts are checked.
 
@@ -175,6 +188,8 @@ def main():
     parser.add_argument('--paired-episodes', type=int, default=0)
     parser.add_argument('--output-name', default='task2_random_start_v1')
     parser.add_argument('--output-dir', type=Path, help='Only for temporary verification; default is each run/eval')
+    parser.add_argument('--selection-file', type=Path,
+                        help='Frozen candidate and exact fresh test settings; never reselect from test results')
     args = parser.parse_args()
     if (args.episodes < 1 or args.steps < 1 or not 2 <= args.hold_samples <= args.steps + 1
             or not 0 <= args.paired_episodes <= args.episodes
@@ -183,6 +198,13 @@ def main():
         parser.error('Invalid sample count, amplitude or seed')
     if Path(args.output_name).name != args.output_name:
         parser.error('output-name must be a filename stem')
+    selection = None
+    if args.selection_file is not None:
+        selection = validate_frozen_selection(args.selection_file, args.checkpoints, {
+            'amplitudes_rad': args.amplitudes, 'episodes': args.episodes,
+            'steps': args.steps, 'hold_samples': args.hold_samples,
+            'target_seed': args.target_seed, 'initial_seed': args.initial_seed,
+        })
     if not torch.cuda.is_available():
         raise RuntimeError('CUDA required; no silent CPU fallback')
     device = 'cuda:0'
@@ -292,6 +314,8 @@ def main():
                 return subprocess.check_output(['git', '-C', str(repo), *parts], text=True).strip()
             report = {
                 'protocol': 'task2-random-start-diagnostic-v1',
+                'role': 'frozen_candidate_test' if selection else 'diagnostic_validation',
+                'frozen_selection': selection,
                 'checkpoint': str(checkpoint), 'checkpoint_sha256': file_hash(checkpoint),
                 'policy_task': contract.task_id, 'policy_contract': contract.to_dict(),
                 'git_commit': git('rev-parse', 'HEAD'), 'git_dirty': bool(git('status', '--porcelain')),
@@ -310,7 +334,7 @@ def main():
                     'automatic_termination': False, 'target_refresh': False,
                     'deterministic_policy': True, 'clip_actions': rl_cfg.clip_actions,
                     'backend': 'gpu_warp', 'paired_episodes_per_level': args.paired_episodes},
-                'scope': 'Diagnostic validation; not a new trained task, independent holdout, or hardware acceptance',
+                'scope': 'Offline robustness evaluation; not a new trained task or hardware acceptance. Test role requires frozen_selection.',
                 'levels': levels,
             }
             output.parent.mkdir(parents=True, exist_ok=True)
