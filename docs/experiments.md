@@ -139,3 +139,43 @@ MUJOCO_GL=egl python -m rebotarm_rl.evaluation.paired_eval --task RebotArm-Reach
 原生入口默认仍是paired；`--backend gpu`仅运行GPU策略轨迹，仍用CPU读取编译模型的初始TCP以保持目标采样一致，不执行CPU策略轨迹。单后端报告的一致性差值为null，不表示差值为零。
 
 短验证：`python scripts/train.py --experiment reach_gravity_fixed_smoke --validation reach_validation_smoke`（2回合，含最终验证及独立测试，仅检查链路）。
+
+## 任务2：现有候选的随机起点诊断
+
+先评估任务1固定惩罚版的三个既定候选，再决定是否新增训练任务。
+诊断协议为`task2-random-start-diagnostic-v1`，不会修改旧任务或checkpoint契约。
+
+```bash
+MUJOCO_GL=egl python -m rebotarm_rl.backends.mjlab.evaluation.random_start \
+  --checkpoints /path/to/seed7/model_250.pt /path/to/seed17/model_600.pt /path/to/seed31/model_200.pt \
+  --amplitudes 0 .025 .05 .1 .2 .4 --episodes 100 \
+  --target-seed 130000 --initial-seed 130001 --paired-episodes 3
+```
+
+每档六关节独立均匀扰动，速度及上一动作为零；从编译模型读取限位，保留
+0.01rad余量，并用CPU `mj_forward`拒绝启用碰撞对中接触距离≤0的初态。
+按回合独立随机流进行拒绝采样，不裁剪关节角；不同幅度共用归一化候选偏移，
+拒绝后的样本可能不同，报告记录拒绝次数及最终初态。
+模型现有相邻连杆、结构重叠及手指碰撞排除保持不变；检查不覆盖被排除的几何对。
+
+目标始终以默认姿态FK为中心、径向均匀2–6cm，朝向固定默认值，每回合固定目标
+250步（5秒），取消自动结束及刷新。三个候选和各幅度共用相同目标，随机起点
+不会移动目标中心或朝向。任务1训练分布是0–6cm，此处沿用其严格评估分布。
+初始已成功的回合不重采样目标，另报排除它们后的末段成功数与分母。
+
+成功要求位置<1cm、姿态<3°；末段26样本跨度0.50秒，区别于旧报告25样本的
+0.48秒。记录首次到达、首次连续保持完成时间（只对成功者求均值）、末段TCP
+相对均值位置的RMS抖动、末段速度RMS、逐关节角度范围/累计行程及最大偏移。
+同时用CPU检查全部50Hz轨迹关节样本的限位及启用碰撞对；未检查物理子步，
+不能据此宣称连续路径无碰撞。CPU/GPU配对仅覆盖各档前`paired-episodes`回合。
+
+JSON保存在每个原训练运行的`eval/`下，含源码提交及dirty状态、评估器哈希、
+权重哈希、条件、逐回合误差轨迹和指标；已有同名文件拒绝覆盖。
+`--output-dir`仅用于临时链路核对，检查通过后按短验证规则清理。
+
+本轮先以相对零扰动末段成功率下降≥10个百分点作为明显退化诊断线；最佳候选
+在±0.05rad仍≥95%时继续扩大起点扰动，未达标时才针对随机起点训练。
+这些是诊断决策线，不能代替正式任务验收。所有用于判断幅度的样本属于验证集；
+冻结候选及幅度后才使用新目标/初态种子的独立测试，不能据测试重新选择候选。
+若新增训练，另注册任务和契约版本，保持奖励及PPO配方，使用固定目标回合与
+经检查的随机reset，并配置独立验证/测试集；不得改写旧权重元数据绕过契约。
