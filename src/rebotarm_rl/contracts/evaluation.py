@@ -28,6 +28,23 @@ class RandomStartProtocol:
 RANDOM_START = RandomStartProtocol()
 
 
+@dataclass(frozen=True)
+class TargetRangeProtocol:
+    """Task 3 validation bands; pose/hold metrics reuse the Task 2 definition."""
+
+    name: str = 'task3-target-range-diagnostic-v1'
+    bands_m: tuple[tuple[float, float], ...] = ((.02, .06), (.06, .08), (.08, .10), (.10, .12), (.12, .16), (.16, .20))
+    initial_amplitude_rad: float = .4
+    target_seed: int = 330000
+    initial_seed: int = 330001
+    reserved_test_target_seed: int = 430000
+    reserved_test_initial_seed: int = 430001
+    minimum_tail_success_rate: float = .95
+
+
+TARGET_RANGE = TargetRangeProtocol()
+
+
 def validate_settings(settings: dict) -> None:
     """Validate exact Task 2 test settings, including sample span and RNG seeds."""
     expected = {'amplitudes_rad', 'episodes', 'steps', 'hold_samples', 'target_seed', 'initial_seed'}

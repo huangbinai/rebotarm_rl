@@ -13,7 +13,7 @@
 - backends/mjlab/registration：唯一插件注册点。
 - backends/mjlab/runner：配置/输入输出校验和实验记录；优化循环仍由上游执行。
 - evaluation/metrics：仅依赖NumPy的误差、连续保持、抖动和关节行程统计。
-- backends/mjlab/evaluation：评估入口、state_checks几何检查和rollout仿真执行；两种评估复用CPU观测和动作执行。
+- backends/mjlab/evaluation：评估入口、state_checks几何检查和rollout仿真执行；fixed_target共用随机起点/目标范围的批量评估，reachability仅为目标提供静态IK可行性证据。
 - training/rsl_rl：RSL-RL 网络和算法配置，不复制上游算法。
 - scripts/train.py：标准库实现的仓库启动入口，读取实验覆盖后交给mjlab原生CLI。
 - scripts/play.py：标准库隔离启动入口；backends/mjlab/play.py负责固定惩罚任务的回放配置和原生窗口显示，复用原生runner和viewer，不修改训练任务或物理模型。
