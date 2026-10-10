@@ -44,6 +44,19 @@ VS Code选择本项目`.venv/bin/python`解释器，打开`scripts/train.py`并�
 
 ## 回放与评估
 
+当前固定惩罚模型推荐使用专用回放入口，包含近景相机、目标和TCP位姿标记、
+实时误差及当前成功状态。只显示仿真，不连接硬件，不继续训练：
+
+```bash
+python scripts/play.py --checkpoint /path/to/model.pt
+python scripts/play.py --checkpoint /path/to/model.pt --target-mode refresh
+```
+
+默认`fixed`保持目标，`refresh`每4秒仿真时间换目标。两者均取消自动回合重置；
+Enter手动重置并换目标，空格暂停，R切换标记。黄球/长RGB轴是目标，青球/短浅色轴是TCP；
+网格只用于显示。即时成功不等于连续保持成功，定量验收仍使用独立评估。
+入口自动清理继承路径并使用GLFW，需要本机桌面显示。`--seed`仅控制回放随机种子。
+
 ```bash
 python -m mjlab.scripts.play RebotArm-Reach-GravityComp-FixedPenalties-Mjlab --checkpoint-file /path/to/model.pt --num-envs 1
 MUJOCO_GL=egl python -m rebotarm_rl.evaluation.paired_eval --task RebotArm-Reach-GravityComp-FixedPenalties-Mjlab --checkpoint /path/to/model.pt --backend gpu --episodes 100 --steps 250 --seed 20000 --hold-steps 25 --target-min-radius 0.02 --target-max-radius 0.06 --exclude-initial-success --output /path/to/run/eval/model_seed20000.json

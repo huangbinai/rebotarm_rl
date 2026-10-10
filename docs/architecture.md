@@ -15,6 +15,7 @@
 - backends/mjlab/evaluation：依赖引擎的 CPU/GPU 配对评估。
 - training/rsl_rl：RSL-RL 网络和算法配置，不复制上游算法。
 - scripts/train.py：标准库实现的仓库启动入口，读取实验覆盖后交给mjlab原生CLI。
+- scripts/play.py：标准库隔离启动入口；backends/mjlab/play.py负责固定惩罚任务的回放配置和原生窗口显示，复用原生runner和viewer，不修改训练任务或物理模型。
 - configs/experiments：命名实验TOML，不复制任务或算法实现。
 - configs/evaluation：可复用评估命令。
 - tests/unit、integration：资源与记录逻辑、策略契约及后端集成测试。
