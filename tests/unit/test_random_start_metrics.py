@@ -22,5 +22,3 @@ def test_hold_timing_jitter_and_joint_travel():
     poses[:, 0] = .02
     failed = trajectory_metrics(poses, joints, np.zeros(3), np.array([1., 0, 0, 0]), 26, .02)
     assert summarize([failed])['mean_first_success_time_s_successes_only'] is None
-
-

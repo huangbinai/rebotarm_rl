@@ -81,5 +81,3 @@ def summarize(rows: list[dict]) -> dict:
         'mean_joint_range_rad': np.mean([r['joint_range_rad'] for r in rows], axis=0).tolist(),
         'mean_joint_total_travel_rad': np.mean([r['joint_total_travel_rad'] for r in rows], axis=0).tolist(),
     }
-
-
