@@ -171,6 +171,10 @@ MUJOCO_GL=egl python -m rebotarm_rl.backends.mjlab.evaluation.random_start \
 
 JSON保存在每个原训练运行的`eval/`下，含源码提交及dirty状态、评估器哈希、
 权重哈希、条件、逐回合误差轨迹和指标；已有同名文件拒绝覆盖。
+来源信息在GPU启动前采集，安装wheel时Git信息明确为null，并记录包版本、源码文件及模型清单哈希。
+启动即写`*.incomplete.json`，逐档保留进度；异常时状态为failed并保留原因，
+只有全部完成才原子发布`status=completed`的正式JSON。历史v1报告没有status/role字段时仍可读取，
+但明确失败或未完成的报告不能用于冻结选择。
 `--output-dir`仅用于临时链路核对，检查通过后按短验证规则清理。
 
 本轮先以相对零扰动末段成功率下降≥10个百分点作为明显退化诊断线；最佳候选
@@ -185,4 +189,6 @@ JSON保存在每个原训练运行的`eval/`下，含源码提交及dirty状态�
 `validation_initial_seeds`及`test_settings`；后者包含`amplitudes_rad`、`episodes`、
 `steps`、`hold_samples`、`target_seed`、`initial_seed`。入口逐项验证权重与条件，
 拒绝复用验证种子；报告保存该冻结文件的内容和哈希并标记`frozen_candidate_test`。
+核验包括协议版本、实际验证报告及权重哈希、验证条件、回合完整性、实际种子与声明一致，
+以及候选对测试幅度的验证覆盖。轨迹中同时发生越限与碰撞时分别计数；初态拒绝采样仍保留首个拒绝原因，历史报告不回写。
 测试不会更新冻结文件或重新选择权重。未传此参数的扫描始终属于诊断验证。

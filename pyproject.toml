@@ -28,5 +28,5 @@ include = ["rebotarm_rl*"]
 "rebotarm_rl.assets" = ["model_manifest.json", "rebotarm/*.xml", "rebotarm/assets/*.STL", "rebotarm/assets/*.stl", "rebotarm/assets/gemini2/*.STL", "rebotarm/assets/gemini2/*.stl"]
 
 [project.optional-dependencies]
-test = ["pytest>=8"]
+test = ["pytest>=8", "numpy>=1.26"]
 mjlab = ["mjlab==1.6.0", "numpy>=1.26", "torch>=2.7", "tensordict"]

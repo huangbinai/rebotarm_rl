@@ -5,8 +5,7 @@ import pytest
 def test_rejects_limits_and_enabled_self_contact():
     mujoco = pytest.importorskip('mujoco')
     np = pytest.importorskip('numpy')
-    pytest.importorskip('mjlab')
-    from rebotarm_rl.backends.mjlab.evaluation.random_start import state_rejection, sample_initial_states
+    from rebotarm_rl.backends.mjlab.evaluation.state_checks import state_rejection, sample_initial_states
     # Six independent slider bodies; the first collides with a fixed obstacle.
     bodies = ''.join(f'<body pos="{i * 3} 0 0"><joint type="slide" axis="1 0 0" range="-1 1"/>'
                      '<geom type="sphere" size="0.1" mass="1"/></body>' for i in range(6))
@@ -28,48 +27,83 @@ def test_rejects_limits_and_enabled_self_contact():
     np.testing.assert_array_equal(again, states)
 
 
-def test_hold_timing_jitter_and_joint_travel():
-    np = pytest.importorskip('numpy')
-    pytest.importorskip('mjlab')
-    from rebotarm_rl.backends.mjlab.evaluation.random_start import trajectory_metrics, summarize
-    poses = np.zeros((30, 7)); poses[:, 3] = 1
-    poses[:4, 0] = .02
-    joints = np.zeros((30, 8)); joints[:, 0] = np.arange(30) * .01
-    result = trajectory_metrics(poses, joints, np.zeros(3), np.array([1., 0, 0, 0]), 26, .02)
-    assert result['tail_success']
-    assert result['first_success_time_s'] == pytest.approx(.08)
-    assert result['first_hold_completion_time_s'] == pytest.approx(.58)
-    assert result['tail_position_jitter_rms_m'] == 0
-    assert result['joint_range_rad'][0] == pytest.approx(.29)
-    assert result['joint_total_travel_rad'][0] == pytest.approx(.29)
-    # A last-point hit is not a hold; unsuccessful arrival stays None.
-    poses[-2, 0] = .02
-    broken = trajectory_metrics(poses, joints, np.zeros(3), np.array([1., 0, 0, 0]), 26, .02)
-    assert not broken['tail_success']
-    assert broken['first_hold_completion_time_s'] is None
-    poses[:, 0] = .02
-    failed = trajectory_metrics(poses, joints, np.zeros(3), np.array([1., 0, 0, 0]), 26, .02)
-    assert summarize([failed])['mean_first_success_time_s_successes_only'] is None
+def test_simultaneous_limit_and_collision_count_independently():
+    mujoco = pytest.importorskip('mujoco')
+    import numpy as np
+    from rebotarm_rl.backends.mjlab.evaluation.state_checks import trajectory_validity
+    bodies = ''.join(f'<body pos="{i * 3} 0 0"><joint type="slide" axis="1 0 0" range="-1 1"/>'
+                     '<geom type="sphere" size="0.1" mass="1"/></body>' for i in range(6))
+    model = mujoco.MjModel.from_xml_string('<mujoco><worldbody><geom type="sphere" size="0.1" '
+                                         'pos="0.5 0 0"/>' + bodies + '</worldbody></mujoco>')
+    joints = np.zeros((2, 6))
+    joints[0, :2] = [.5, 1.2]
+    joints[1, 0] = np.nan
+    assert trajectory_validity(model, np.arange(6), np.arange(6), joints) == {
+        'joint_limit': 1, 'self_collision': 1, 'nonfinite': 1}
 
 
-def test_frozen_test_rejects_weight_changes_and_reused_seeds(tmp_path):
-    import json
+def test_gpu_batched_reset_clears_history_and_keeps_goals():
+    torch = pytest.importorskip('torch')
     pytest.importorskip('mjlab')
-    from rebotarm_rl.contracts.artifacts import file_hash
-    from rebotarm_rl.backends.mjlab.evaluation.random_start import validate_frozen_selection
-    checkpoint = tmp_path / 'model.pt'; checkpoint.write_bytes(b'frozen test identity')
-    path = tmp_path / 'selection.json'
-    settings = {'target_seed': 230000, 'initial_seed': 230001, 'episodes': 200}
-    record = {'checkpoint_sha256': file_hash(checkpoint), 'test_settings': settings,
-              'validation_target_seeds': [130000], 'validation_initial_seeds': [130001]}
-    path.write_text(json.dumps(record))
-    assert validate_frozen_selection(path, [checkpoint], settings)['record'] == record
-    with pytest.raises(ValueError, match='settings'):
-        validate_frozen_selection(path, [checkpoint], dict(settings, episodes=100))
-    record['validation_initial_seeds'].append(230001)
-    path.write_text(json.dumps(record))
-    with pytest.raises(ValueError, match='fresh'):
-        validate_frozen_selection(path, [checkpoint], settings)
-    checkpoint.write_bytes(b'overwritten')
-    with pytest.raises(ValueError, match='checkpoint'):
-        validate_frozen_selection(path, [checkpoint], settings)
+    if not torch.cuda.is_available():
+        pytest.skip('CUDA required')
+    import numpy as np
+    from mjlab.envs import ManagerBasedRlEnv
+    from mjlab.rl import RslRlVecEnvWrapper
+    from rebotarm_rl.backends.mjlab.tasks.reach.aligned import make_gravity_fixed_env_cfg
+    from rebotarm_rl.backends.mjlab.evaluation.rollout import gpu_rollout
+    cfg = make_gravity_fixed_env_cfg(num_envs=3)
+    cfg.terminations = {}
+    cfg.commands['reach'].position_radius = 0.
+    cfg.commands['reach'].resampling_time_range = (1e9, 1e9)
+    env = RslRlVecEnvWrapper(ManagerBasedRlEnv(cfg, device='cuda:0'))
+    try:
+        base = env.unwrapped
+        robot = base.scene['robot']
+        command = base.command_manager.get_term('reach')
+        env.reset()
+        initial = robot.data.default_joint_pos.cpu().numpy().copy()
+        initial[:, 0] += np.array([-.05, 0., .05])
+        targets = command.target_pos.cpu().numpy().copy()
+        targets[:, 0] += np.array([-.02, .03, .04])
+        quat = command.target_quat[0].cpu().numpy().copy()
+        env.step(torch.full((3, 6), .1, device='cuda:0'))
+        seen = []
+        def policy(obs):
+            seen.append(obs['actor'].clone())
+            return torch.full((3, 6), .02, device='cuda:0')
+        _, joints, observations = gpu_rollout(env, policy, initial, targets, quat, 3, 3, 'cuda:0')
+        np.testing.assert_allclose(joints[0], initial, atol=2e-7, rtol=0)
+        np.testing.assert_array_equal(observations[0, :, 6:12], 0.)
+        np.testing.assert_array_equal(observations[0, :, -6:], 0.)
+        np.testing.assert_allclose(observations[1, :, -6:], .02)
+        np.testing.assert_allclose(command.target_pos.cpu().numpy(), targets)
+        assert len(seen) == 3
+    finally:
+        env.close()
+
+
+@pytest.mark.parametrize('default_dtype', ['float32', 'float64'])
+def test_cpu_control_preserves_default_reference_precision_and_delta_semantics(default_dtype):
+    mujoco = pytest.importorskip('mujoco')
+    torch = pytest.importorskip('torch')
+    import numpy as np
+    from rebotarm_rl.backends.mjlab.evaluation.rollout import CpuRollout
+    from rebotarm_rl.contracts.policy import REACH_GRAVITY_FIXED, REACH_V1
+    bodies = ''.join(f'<body pos="{i * 3} 0 0"><joint name="j{i}" type="slide"/>'
+                     '<geom type="sphere" size=".1" mass="1"/></body>' for i in range(6))
+    actuators = ''.join(f'<position name="robot/joint{i+1}_torque" joint="j{i}"/>' for i in range(6))
+    model = mujoco.MjModel.from_xml_string(f'<mujoco><worldbody>{bodies}</worldbody><actuator>{actuators}</actuator></mujoco>')
+    default = np.full(6, .123456789, dtype=default_dtype)
+    initial = np.full(6, .32123456789)
+    action = torch.tensor([[2., -.8, .4, -.2, .1, -2.]])
+    for contract in (REACH_GRAVITY_FIXED, REACH_V1):
+        cpu = CpuRollout(model, np.arange(6), np.arange(6), 0, default, contract, 0, None)
+        cpu.reset(initial)
+        cpu.step(action)
+        if contract.action_type == 'joint_position_delta':
+            expected = torch.as_tensor(initial) + (action[0] * contract.action_scale).clamp(-contract.action_scale, contract.action_scale)
+        else:
+            expected = torch.as_tensor(default) + action[0] * contract.action_scale
+        np.testing.assert_array_equal(cpu.data.ctrl, expected.numpy())
+        np.testing.assert_array_equal(cpu.last_action, action[0].numpy())

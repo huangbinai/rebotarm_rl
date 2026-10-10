@@ -6,13 +6,14 @@
 
 ## 结构
 
-- src/rebotarm_rl/contracts：标准库实现的机器人、策略与实验记录契约。
+- src/rebotarm_rl/contracts：标准库实现的机器人、策略、评估协议与实验记录契约；冻结测试在启动GPU前核验验证证据。
 - assets：随包模型XML/STL、来源清单及哈希校验。
 - backends/mjlab/robots：模型与执行器配置。
 - backends/mjlab/tasks/reach：配置、命令、观测、奖励、终止。
 - backends/mjlab/registration：唯一插件注册点。
 - backends/mjlab/runner：配置/输入输出校验和实验记录；优化循环仍由上游执行。
-- backends/mjlab/evaluation：依赖引擎的 CPU/GPU 配对评估。
+- evaluation/metrics：仅依赖NumPy的误差、连续保持、抖动和关节行程统计。
+- backends/mjlab/evaluation：评估入口、state_checks几何检查和rollout仿真执行；两种评估复用CPU观测和动作执行。
 - training/rsl_rl：RSL-RL 网络和算法配置，不复制上游算法。
 - scripts/train.py：标准库实现的仓库启动入口，读取实验覆盖后交给mjlab原生CLI。
 - scripts/play.py：标准库隔离启动入口；backends/mjlab/play.py负责固定惩罚任务的回放配置和原生窗口显示，复用原生runner和viewer，不修改训练任务或物理模型。
@@ -20,7 +21,7 @@
 - configs/evaluation：可复用评估命令。
 - tests/unit、integration：资源与记录逻辑、策略契约及后端集成测试。
 
-未来公共指标放 evaluation；只有独立于引擎的计算才能提取。
+公共指标放 evaluation；只有独立于引擎的计算才能提取。旧paired_eval的25样本保持和任务2的26样本保持各自保留，不通过目录整理统一数值口径。
 policies 和 algorithms 等到出现自定义网络或算法实现后再创建。
 
 ## 依赖规则

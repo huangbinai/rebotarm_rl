@@ -1,4 +1,4 @@
-from rebotarm_rl.backends.mjlab.evaluation.paired_eval import success_summary
+from rebotarm_rl.evaluation.metrics import success_summary
 
 
 def test_success_summary_requires_continuous_hold_and_tail():

@@ -4,14 +4,15 @@
 采用src布局，先安装再测试；不要用PYTHONPATH=src掩盖打包缺陷。
 基础包不强制安装训练框架，GPU依赖按requirements安装。后端环境边界见[结构规范](architecture.md)。
 
-    python -m pip install -e '.[test]' --no-deps
+    python -m pip install -e '.[test]'
     PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -I -m pytest tests -q
     python -m compileall src/rebotarm_rl -q
     git diff --check
 
-纯CPU CI安装基础包后运行unit测试；未安装后端依赖时integration明确跳过。
+纯CPU CI安装基础包、pytest和NumPy，实际执行指标、协议和文件记录测试；未安装后端依赖时integration明确跳过。测试额外依赖不安装MuJoCo、Torch或mjlab。
 任务或训练适配变更必须运行GPU短训练与固定种子配对评估，并测试旧checkpoint。
 wheel必须包含assets/model_manifest.json及assets/rebotarm/下全部XML和STL；在仓库之外、空缓存环境验证入口。
+评估结构变更使用相同旧权重、种子、初态和目标对比重构前后轨迹，并执行CPU/GPU配对。评估器不依赖Git目录：wheel记录Git未知值、包版本、Python源码及模型清单哈希；不因此放宽正式训练的干净提交要求。
 
 ## 模型资源
 

@@ -36,3 +36,92 @@ def write_run_record(directory: Path, *, repository: Path, runtime: dict) -> Non
         "resolved_configs": ["params/env.yaml", "params/agent.yaml"],
     }
     (directory / "run_manifest.json").write_text(json.dumps(record, indent=2) + "\n")
+
+
+def write_json_atomic(path: Path, value: dict) -> None:
+    """Replace one JSON artifact only after successful serialization and flush."""
+    import tempfile
+    payload = json.dumps(value, indent=2, allow_nan=False) + '\n'
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(mode='w', dir=path.parent, prefix=path.name + '.',
+                                         suffix='.tmp', delete=False) as stream:
+            temporary = Path(stream.name)
+            stream.write(payload)
+            stream.flush()
+            os.fsync(stream.fileno())
+        temporary.replace(path)
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
+
+
+def evaluation_provenance(package: Path, entrypoint: Path) -> dict:
+    """Collect before GPU work; a wheel has explicit unknown Git provenance.
+
+    Hash all installed Python sources plus the bundled model manifest so the
+    identity remains useful when the source is not a Git checkout.
+    """
+    from importlib.metadata import PackageNotFoundError, version
+    package = package.resolve()
+    repository = next((p for p in package.parents if (p / '.git').exists()
+                       and (p / 'src/rebotarm_rl').resolve() == package), None)
+    def git(*args):
+        if repository is None:
+            return None
+        try:
+            result = subprocess.run(['git', '-C', str(repository), *args],
+                                    capture_output=True, text=True, check=False)
+        except FileNotFoundError:
+            return None
+        return result.stdout.strip() if result.returncode == 0 else None
+    commit, status = git('rev-parse', 'HEAD'), git('status', '--porcelain')
+    try:
+        package_version = version('rebotarm-rl')
+    except PackageNotFoundError:
+        package_version = None
+    sources = {str(p.relative_to(package)): file_hash(p) for p in sorted(package.rglob('*.py'))}
+    return {
+        'git_commit': commit, 'git_dirty': None if status is None else bool(status),
+        'source_kind': 'git_checkout' if commit else 'installed_package_without_git',
+        'package_version': package_version, 'source_sha256': sources,
+        'model_manifest_sha256': file_hash(package / 'assets/model_manifest.json'),
+        'evaluator_sha256': file_hash(entrypoint), 'command': sys.orig_argv,
+        'created_at': datetime.now(timezone.utc).isoformat(),
+    }
+
+
+class EvaluationReport:
+    """Persist incomplete/failed evidence; publish completed JSON atomically.
+
+    Completion is explicit. Exiting early can never produce a successful report.
+    Existing output or interrupted attempts require a new output name.
+    """
+
+    def __init__(self, output: Path, record: dict):
+        self.output = output
+        self.pending = output.with_suffix('.incomplete.json')
+        self.record = dict(record, status='incomplete')
+
+    def __enter__(self):
+        if self.output.exists() or self.pending.exists():
+            raise FileExistsError(self.output)
+        write_json_atomic(self.pending, self.record)
+        return self
+
+    def save_progress(self) -> None:
+        write_json_atomic(self.pending, self.record)
+
+    def complete(self) -> None:
+        completed = dict(self.record, status='completed')
+        write_json_atomic(self.output, completed)
+        self.record = completed
+        self.pending.unlink()
+
+    def __exit__(self, exc_type, exc, traceback):
+        if self.record['status'] != 'completed':
+            if exc is not None:
+                self.record.update(status='failed', error={'type': exc_type.__name__, 'message': str(exc)})
+            self.save_progress()
+        return False
