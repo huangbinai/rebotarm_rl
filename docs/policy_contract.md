@@ -19,8 +19,7 @@ PPO采用64×64 ELU、初始标准差1.0、熵系数0.001、学习率0.001、8 e
 config/franka/agents/rsl_rl_ppo_cfg.py；核对日期2026-10-06。
 https://github.com/isaac-sim/IsaacLab/tree/main/source/isaaclab_tasks/isaaclab_tasks/manager_based/manipulation/reach
 
-启动：`python scripts/train.py --experiment reach_official_aligned`；
-短验证使用 `reach_official_aligned_smoke`。评估必须显式传入新任务名，
+启动：`python scripts/train.py --experiment history/reach_official_aligned --seed 7`。旧短验证配置已删除。评估必须显式传入新任务名，
 使用固定目标250步测试（不刷新目标、不自动终止），区别于12秒训练任务。
 
 ## 姿态权重单变量实验
@@ -29,7 +28,7 @@ https://github.com/isaac-sim/IsaacLab/tree/main/source/isaaclab_tasks/isaaclab_t
 `reach-position-official-aligned-v2-orientation-v1`只将姿态误差奖励权重从
 `-0.1`改为`-0.2`，其他动作、PPO、目标、episode、curriculum和观测保持一致。
 它只与自身权重兼容，不能加载官方对齐版v2权重。正式实验：
-`python scripts/train.py --experiment reach_orientation_aligned`。
+`python scripts/train.py --experiment history/reach_orientation_aligned --seed 7`。
 
 任务配置以`src/rebotarm_rl/backends/mjlab/tasks/reach/config.py`为准，契约定义在`contracts/policy.py`。
 
@@ -78,8 +77,7 @@ CPU/GPU比较使用mjlab编译模型，不代表与ROS位置控制仿真或实�
 这是仿真模型计算的理想重力前馈，不是已经标定的实机电机位置模式。
 新旧任务权重不兼容，所有历史任务保持原有动力学及契约。
 
-启动：`python scripts/train.py --experiment reach_gravity_aligned`，短验证
-用`reach_gravity_aligned_smoke`。严格评估需新任务名，仍使用2–6cm目标、
+启动：`python scripts/train.py --experiment history/reach_gravity_aligned --seed 7`。旧短验证配置已删除。严格评估需新任务名，仍使用2–6cm目标、
 100回合、250步、seed20000及连续25样本指标以便对照。
 
 
@@ -93,7 +91,7 @@ CPU/GPU比较使用mjlab编译模型，不代表与ROS位置控制仿真或实�
 按项目的实验契约隔离规则，新旧任务权重禁止交叉加载；虽然推理动作与
 观测相同，这仍是独立训练配方，正式对照从头训练，不从旧权重恢复。
 
-启动：`python scripts/train.py --experiment reach_gravity_fixed`；
+启动：`python scripts/train.py --experiment reach_gravity_fixed --seed 7`；
 短验证使用`reach_gravity_fixed_smoke`。128环境、24步、1000轮、seed7、
 每50轮保存，与原重力补偿实验相同。使用相同固定目标分别比较中间与
 最终权重，不能只用训练总奖励判断改善，因为奖励课程已不同。

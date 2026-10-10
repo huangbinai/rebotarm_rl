@@ -2,17 +2,17 @@
 
 ## 统一训练入口
 
-在独立虚拟环境中运行仓库的`scripts/train.py`，从任意工作目录传入脚本路径均可；入口自动切换到仓库根目录，使用当前Python解释器执行mjlab原生CLI。默认实验为`reach_baseline`。
+在独立虚拟环境中运行仓库的`scripts/train.py`，从任意工作目录传入脚本路径均可；入口自动切换到仓库根目录，使用当前Python解释器执行mjlab原生CLI。默认实验为`reach_gravity_fixed`。
 
 ```bash
-python scripts/train.py --experiment reach_baseline --seed 7 --dry-run
-python scripts/train.py --experiment reach_baseline --seed 7
-python scripts/train.py --experiment reach_smoke
+python scripts/train.py --experiment reach_gravity_fixed --seed 7 --dry-run
+python scripts/train.py --experiment reach_gravity_fixed --seed 7
+python scripts/train.py --experiment reach_gravity_fixed_smoke
 ```
 
 `configs/experiments/*.toml`只记录命名实验覆盖：`task`、`run_kind`、`seed`和`[args]`。参数表使用带引号的原生CLI键，例如`"agent.max-iterations" = 1000`。目前支持字符串和数值；网络结构等复杂配置仍放在原生配置中。未知原生参数由mjlab拒绝，不自行实现第二套训练配置系统。
 
-新增实验时新增TOML，不复制训练脚本。`--seed`优先于TOML种子；运行名为`实验名_seed种子`，输出根目录由`run_kind`选择`runs/train`或`runs/smoke`。这些字段由入口管理，不在`[args]`中重复定义。基线使用128环境、24步采样、1000轮更新；短验证使用同样并行规模、2轮更新。原来的训练`configs/experiments/reach_smoke.sh`已由命名实验取代；评估脚本不变。
+新增实验时新增TOML，不复制训练脚本。当前入口未传`--seed`时使用默认种子42，TOML中的种子不会自动生效；复现历史seed7实验请显式传入`--seed 7`；运行名为`实验名_seed种子`，输出根目录由`run_kind`选择`runs/train`或`runs/smoke`。这些字段由入口管理，不在`[args]`中重复定义。基线使用128环境、24步采样、1000轮更新；短验证使用同样并行规模、2轮更新。旧任务的四个短训练TOML已删除；短验证使用当前固定惩罚任务。
 
 入口固定使用仓库模型，移除继承的ROS/PYTHONPATH和自定义模型路径，设置EGL及实验类型；不修改父终端环境。需要自定义模型或原生复杂参数时直接使用mjlab CLI，并遵守模型与契约规则。
 
@@ -21,10 +21,12 @@ python scripts/train.py --experiment reach_smoke
 使用`--environment 名称`引用`runs/environments/名称.txt`，不存在或为空时拒绝启动。入口不继承`REBOTARM_RL_ENVIRONMENT`，未指定时记录当前Python环境路径，不自动生成快照。快照是否仍匹配当前依赖需要使用者确认；更新依赖后应生成新快照。
 
 ```bash
-python scripts/train.py --experiment reach_baseline --environment 2026-10-04-preflight
+python scripts/train.py --experiment reach_gravity_fixed --environment 2026-10-04-preflight
 ```
 
 上例仅适用于已存在且仍匹配的快照。运行记录保存展开后的原生命令，最终配置仍由mjlab写入`params/`；实验TOML由Git提交追溯，不另存重复配置。入口默认不自动评估；显式使用--validation启用下文固定验证，分析说明仍由Codex读取结果后维护。
+
+实验目录仅保留当前的 `reach_gravity_fixed` 和 `reach_gravity_fixed_smoke`；五个历史正式配方位于 `configs/experiments/history/`，通过 `--experiment history/名称` 显式选择。运行名仍使用配方文件名，不含 `history/`。历史任务注册和权重契约保持不变。
 
 ## 默认输出
 
@@ -63,7 +65,7 @@ export REBOTARM_RL_ENVIRONMENT=2026-10-04
 固定模型随项目的`assets/rebotarm/`分发，由`assets/model_manifest.json`校验，运行目录不重复复制来源清单。默认不保存编译模型；排查或正式归档时显式设置：
 
 ```bash
-REBOTARM_RL_SAVE_COMPILED_MODEL=1 python scripts/train.py --experiment reach_smoke
+REBOTARM_RL_SAVE_COMPILED_MODEL=1 python scripts/train.py --experiment reach_gravity_fixed_smoke
 ```
 
 此时在运行目录生成`compiled_model.mjb`。MJB用于同版本MuJoCo复查，不代表完整训练状态或跨版本精确复现。自定义场景需另存完整XML、网格等源资源。本项目不建立模型去重或共享引用系统。
@@ -106,7 +108,7 @@ python -m rebotarm_rl.evaluation.paired_eval \
 `reach_gravity_fixed_epochs4`沿用固定惩罚任务，仅将每批数据的PPO学习轮数从8改为4。动作、观测、动力学与奖励契约不变，因此不新增任务或策略契约；训练配方由实验名、提交与params区分。对照从头训练1000轮，seed7、17、31，128环境×24步。
 
 ```bash
-python scripts/train.py --experiment reach_gravity_fixed_epochs4 --seed 7 --environment 2026-10-04-preflight
+python scripts/train.py --experiment history/reach_gravity_fixed_epochs4 --seed 7 --environment 2026-10-04-preflight
 ```
 
 统一用seed30000比较100、200、250、300、400、600、800、999轮；按末段保持成功数最高选候选，并列按平均位置误差最低，再并列选较早轮次。随后在新seed80000的100个目标上比较三种子的候选及最终权重与8轮更新对照。该比较控制采样步数，不等计算量。

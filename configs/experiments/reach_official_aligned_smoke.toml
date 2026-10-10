@@ -1,7 +1,0 @@
-task = "RebotArm-Reach-OfficialAligned-Mjlab"
-run_kind = "smoke"
-seed = 7
-
-[args]
-"env.scene.num-envs" = 128
-"agent.max-iterations" = 2

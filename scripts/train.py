@@ -16,8 +16,8 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def load_experiment(name: str) -> dict:
     """读取仓库内 TOML；只保存实验覆盖，不复制任务或 PPO 默认配置。"""
-    if not re.fullmatch(r"[a-zA-Z0-9_-]+", name):
-        raise ValueError("实验名只能包含字母、数字、下划线和连字符")
+    if not re.fullmatch(r"(?:history/)?[a-zA-Z0-9_-]+", name):
+        raise ValueError("实验名只能包含字母、数字、下划线和连字符，可加 history/ 前缀")
     with (ROOT / "configs" / "experiments" / f"{name}.toml").open("rb") as stream:
         config = tomllib.load(stream)
     if set(config) != {"task", "run_kind", "seed", "args"}:
@@ -71,7 +71,7 @@ def build_launch(name: str, config: dict, seed: int, environment: str | None) ->
     for key, value in config["args"].items():
         command.extend([f"--{key}", str(value)])
     command.extend([
-        "--agent.seed", str(seed), "--agent.run-name", f"{name}_seed{seed}",
+        "--agent.seed", str(seed), "--agent.run-name", f"{name.rsplit('/', 1)[-1]}_seed{seed}",
         "--log-root", f"runs/{config['run_kind']}",
     ])
     return command, env
@@ -79,8 +79,8 @@ def build_launch(name: str, config: dict, seed: int, environment: str | None) ->
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--experiment", default="reach_baseline", help="configs/experiments 下的 TOML 名称")
-    parser.add_argument("--seed", type=int, help="覆盖实验种子")
+    parser.add_argument("--experiment", default="reach_gravity_fixed", help="实验 TOML 名称；历史实验用 history/名称")
+    parser.add_argument("--seed", default=42, type=int, help="训练种子，默认42；覆盖实验TOML中的种子")
     parser.add_argument("--environment", help="runs/environments 下已有依赖快照名称，不含 .txt")
     parser.add_argument("--dry-run", action="store_true", help="只预览命令，不检查 Git 或启动训练")
     parser.add_argument("--validation", help="configs/evaluation下固定验证TOML名称；按验证间隔评估，结束后测试选定权重")

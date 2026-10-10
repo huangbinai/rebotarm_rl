@@ -11,7 +11,7 @@
 凭据通过云平台身份和密钥系统提供，不写入仓库。模型随仓库和安装包分发，无需额外下载。
 
 ```bash
-python scripts/train.py --experiment reach_smoke
+python scripts/train.py --experiment reach_gravity_fixed_smoke
 ```
 
 安装入口为固定CUDA依赖文件。正式部署应构建测试过的容器并固定镜像摘要。

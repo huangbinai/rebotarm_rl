@@ -31,22 +31,22 @@ python -m mjlab.scripts.list_envs
 正式训练前先提交代码并保持工作区干净；每次记录提交号，不复制Git差异或源码。
 
 ```bash
-python scripts/train.py --experiment reach_baseline --seed 7
+python scripts/train.py --experiment reach_gravity_fixed --seed 7
 ```
 
-首次运行可先用`python scripts/train.py --experiment reach_smoke`完成短训练。短训练用于检查运行链路，不代表策略已经收敛。
+首次运行可先用`python scripts/train.py --experiment reach_gravity_fixed_smoke`完成短训练。短训练用于检查运行链路，不代表策略已经收敛。
 
-统一入口默认选择`reach_baseline`；实验覆盖在`configs/experiments/*.toml`，奖励和网络仍由原生任务配置管理。使用`--dry-run`预览命令，使用`--environment 名称`关联已有依赖快照，详见[训练记录与产物](docs/experiments.md)。
+统一入口默认选择`reach_gravity_fixed`，未指定`--seed`时使用42；实验覆盖在`configs/experiments/*.toml`，奖励和网络仍由原生任务配置管理。使用`--dry-run`预览命令，使用`--environment 名称`关联已有依赖快照，详见[训练记录与产物](docs/experiments.md)。
 
-VS Code选择本项目`.venv/bin/python`解释器，打开`scripts/train.py`并点击“运行 Python 文件”，即启动默认正式基线。通过集成终端传入参数可选择其他实验。
+VS Code选择本项目`.venv/bin/python`解释器，打开`scripts/train.py`并点击“运行 Python 文件”，即启动固定惩罚版本的正式训练（seed42）。通过集成终端传入参数可选择其他实验。
 
 可选每100轮单后端验证及训练结束后的独立测试：在训练命令后加`--validation reach_validation`，按独立验证集选择已保存权重，结果见运行目录`eval/validation/selection.json`。验证会增加运行时间；选定后的新目标集测试自动写入`eval/test/`。
 
 ## 回放与评估
 
 ```bash
-python -m mjlab.scripts.play RebotArm-Reach-Mjlab --checkpoint-file /path/to/model.pt --env.scene.num-envs 1
-MUJOCO_GL=egl python -m rebotarm_rl.evaluation.paired_eval --task RebotArm-Reach-Mjlab --checkpoint /path/to/model.pt --episodes 100 --steps 250 --seed 20000 --output /path/to/run/eval/model_seed20000.json
+python -m mjlab.scripts.play RebotArm-Reach-GravityComp-FixedPenalties-Mjlab --checkpoint-file /path/to/model.pt --num-envs 1
+MUJOCO_GL=egl python -m rebotarm_rl.evaluation.paired_eval --task RebotArm-Reach-GravityComp-FixedPenalties-Mjlab --checkpoint /path/to/model.pt --backend gpu --episodes 100 --steps 250 --seed 20000 --hold-steps 25 --target-min-radius 0.02 --target-max-radius 0.06 --exclude-initial-success --output /path/to/run/eval/model_seed20000.json
 ```
 
 仅加载可信来源且策略契约匹配的权重。观测、动作单位与权重兼容性见[策略契约](docs/policy_contract.md)。
